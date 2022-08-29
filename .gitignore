@@ -5,6 +5,7 @@
 /bower_components
 
 # IDEs and editors
+*.user
 /.idea
 .project
 .classpath

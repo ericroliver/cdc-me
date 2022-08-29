@@ -5,7 +5,7 @@ VisualStudioVersion = 17.0.31611.283
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "cdc-maui", "cdc-maui\cdc-maui.csproj", "{79203F91-C482-4BE7-B618-82D0DA998A33}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cdc-proto", "cdc-proto\cdc-proto.csproj", "{C3B1186B-DA38-4878-A8BD-DDF5A4401FAC}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cdc-utility", "cdc-proto\cdc-utility.csproj", "{C3B1186B-DA38-4878-A8BD-DDF5A4401FAC}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cdc-lib", "cdc-lib\cdc-lib.csproj", "{B7E6DF81-4D93-4C8C-AB2E-7271D2DB7711}"
 EndProject
