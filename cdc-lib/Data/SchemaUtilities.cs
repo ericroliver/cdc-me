@@ -23,45 +23,45 @@ namespace Softbase
         public const string Identity = "IsIdentity";
     }
 
-    public static class RdbmsUtilities
-    {
+    //public static class RdbmsUtilities
+    //{
        
-        private static bool IgnoreValue(object value)
-        {
-            return value is IEnumerable && !(value is string);
-        }
+    //    private static bool IgnoreValue(object value)
+    //    {
+    //        return value is IEnumerable && !(value is string);
+    //    }
 
-        private static bool IgnoreField(string fieldName)
-        {
-            return fieldName.EqualsIgnoreCase("_ident")
-                || fieldName.StartsWith("$$")
-                || "|typeName|fieldsToIgnore".IndexOf(fieldName, StringComparison.OrdinalIgnoreCase) >= 0;
-        }
+    //    private static bool IgnoreField(string fieldName)
+    //    {
+    //        return fieldName.EqualsIgnoreCase("_ident")
+    //            || fieldName.StartsWith("$$")
+    //            || "|typeName|fieldsToIgnore".IndexOf(fieldName, StringComparison.OrdinalIgnoreCase) >= 0;
+    //    }
 
-        private static string GetFieldDelimiter(object value)
-        {
-            if (value is string || value is DateTime)
-                return "'";
+    //    private static string GetFieldDelimiter(object value)
+    //    {
+    //        if (value is string || value is DateTime)
+    //            return "'";
 
-            return "";
-        }
+    //        return "";
+    //    }
 
-        public static T TryReadField<T>(this IDataReader reader, string fieldName)
-        {
-            return TryReadField(reader, fieldName, default(T));
-        }
+    //    public static T TryReadField<T>(this IDataReader reader, string fieldName)
+    //    {
+    //        return TryReadField(reader, fieldName, default(T));
+    //    }
 
-        public static T TryReadField<T>(this IDataReader reader, string fieldName, T defaultValue)
-        {
-            var index = reader.GetOrdinal(fieldName);
-            var value = reader.GetValue(index);
+    //    public static T TryReadField<T>(this IDataReader reader, string fieldName, T defaultValue)
+    //    {
+    //        var index = reader.GetOrdinal(fieldName);
+    //        var value = reader.GetValue(index);
 
-            if (value is DBNull || value == null)
-                return defaultValue;
+    //        if (value is DBNull || value == null)
+    //            return defaultValue;
 
-            return (T)value;
-        }
-    }
+    //        return (T)value;
+    //    }
+    //}
 
     public static class StringUtilities
     {
@@ -222,8 +222,6 @@ namespace Softbase
         }
     }
 
-    namespace Karmak.Utilities.Data
-    {
         public static class DataTableUtilities
     {
         public static List<string> DistinctField(DataTable dt, string fieldName)
@@ -411,5 +409,4 @@ namespace Softbase
             return value;
         }
     }
-}
 }

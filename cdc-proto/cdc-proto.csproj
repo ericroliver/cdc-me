@@ -22,4 +22,10 @@
   <ItemGroup>
     <ProjectReference Include="..\cdc-lib\cdc-lib.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Remove="Commands\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Commands\" />
+  </ItemGroup>
 </Project>
