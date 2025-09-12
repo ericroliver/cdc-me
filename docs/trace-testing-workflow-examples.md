@@ -60,18 +60,15 @@ Session ID: 12345678-1234-1234-1234-123456789012
 Trace session started successfully
 ```
 
-#### Step 4: Enable CDC and Run Original Scenario
+#### Step 5: Run Original Scenario
 
 ```bash
-# CDC should already be enabled from step 1, but let's verify
-cdc-proto init --connection "$TEST_DB_CONN"
-
 # Run the original test scenario (this would be your application or test script)
 # For this example, let's assume we have a test script
 ./run-monthly-processing-test.sh original_procedure
 ```
 
-#### Step 5: Stop Trace and Capture CDC Data
+#### Step 6: Stop Trace and Capture CDC Data
 
 ```bash
 # Stop the trace session
@@ -93,7 +90,7 @@ CDC profile generated: baseline_cdc_profile.json (15 tables, 3,421 changes)
 Trace data exported to trace database
 ```
 
-#### Step 6: Restore Snapshot and Replay
+#### Step 7: Restore Snapshot and Replay
 
 ```bash
 # Restore database to baseline state
@@ -123,14 +120,14 @@ Processed 1,247 statements
 Replay completed successfully
 ```
 
-#### Step 7: Capture CDC Data from Replay
+#### Step 8: Capture CDC Data from Replay
 
 ```bash
 # Generate CDC profile from replay
 cdc-proto profile --connection "$TEST_DB_CONN" --out replay_cdc_profile.json
 ```
 
-#### Step 8: Compare CDC Captures
+#### Step 9: Compare CDC Captures
 
 ```bash
 # Compare baseline and replay CDC data

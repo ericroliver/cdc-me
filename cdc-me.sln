@@ -3,11 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31611.283
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "cdc-maui", "cdc-maui\cdc-maui.csproj", "{79203F91-C482-4BE7-B618-82D0DA998A33}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cdc-utility", "cdc-proto\cdc-utility.csproj", "{C3B1186B-DA38-4878-A8BD-DDF5A4401FAC}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cdc-lib", "cdc-lib\cdc-lib.csproj", "{B7E6DF81-4D93-4C8C-AB2E-7271D2DB7711}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cdc-api", "cdc-api\cdc-api.csproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cdc-api.Tests", "cdc-api.Tests\cdc-api.Tests.csproj", "{B2C3D4E5-F6G7-8901-BCDE-F23456789012}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,12 +17,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{79203F91-C482-4BE7-B618-82D0DA998A33}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{79203F91-C482-4BE7-B618-82D0DA998A33}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{79203F91-C482-4BE7-B618-82D0DA998A33}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
-		{79203F91-C482-4BE7-B618-82D0DA998A33}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{79203F91-C482-4BE7-B618-82D0DA998A33}.Release|Any CPU.Build.0 = Release|Any CPU
-		{79203F91-C482-4BE7-B618-82D0DA998A33}.Release|Any CPU.Deploy.0 = Release|Any CPU
 		{C3B1186B-DA38-4878-A8BD-DDF5A4401FAC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C3B1186B-DA38-4878-A8BD-DDF5A4401FAC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C3B1186B-DA38-4878-A8BD-DDF5A4401FAC}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -29,6 +25,14 @@ Global
 		{B7E6DF81-4D93-4C8C-AB2E-7271D2DB7711}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B7E6DF81-4D93-4C8C-AB2E-7271D2DB7711}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B7E6DF81-4D93-4C8C-AB2E-7271D2DB7711}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B2C3D4E5-F6G7-8901-BCDE-F23456789012}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2C3D4E5-F6G7-8901-BCDE-F23456789012}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B2C3D4E5-F6G7-8901-BCDE-F23456789012}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B2C3D4E5-F6G7-8901-BCDE-F23456789012}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -9,8 +9,8 @@ This document outlines the design and implementation plan for extending the CDC 
 The enhanced system implements a 12-step workflow for comprehensive database testing:
 
 1. **Create Named Snapshot** - Create a database snapshot as baseline (only 1 allowed)
-2. **Start Tracing** - Enable SQL tracing to a separate trace database
-3. **Enable CDC** - Turn on Change Data Capture on the test database
+2. **Enable CDC** - Turn on Change Data Capture on the test database
+3. **Start Tracing** - Enable SQL tracing to a separate trace database
 4. **Execute Scenarios** - Run test scenarios while capturing all changes
 5. **Stop Trace** - Stop tracing and capture trace data
 6. **Capture CDC Data** - Extract and store CDC data to trace database
@@ -75,29 +75,90 @@ graph TB
 
 ## Database Schema Design
 
+### Multi-Database Support
+
+The system supports multiple database platforms:
+
+- **Test Database**: SQL Server (where CDC and snapshots are managed)
+- **Trace Database**: PostgreSQL or SQL Server (configurable, stores trace data and CDC captures)
+
+This separation allows for:
+
+- Isolation of trace data from test environment
+- Scalable trace storage on different infrastructure
+- Cross-platform compatibility for trace analysis
+
 ### Trace Database Schema
 
-The trace database will contain the following tables:
+The trace database will contain the following tables. Schemas are provided for both PostgreSQL and SQL Server:
 
-#### TraceSession Table
+#### PostgreSQL Schema
 
 ```sql
+-- TraceSessions table
+CREATE TABLE trace_sessions (
+    session_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_name VARCHAR(255) NOT NULL UNIQUE,
+    test_database VARCHAR(128) NOT NULL,
+    snapshot_name VARCHAR(128),
+    start_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    end_time TIMESTAMP WITH TIME ZONE,
+    status VARCHAR(50) NOT NULL DEFAULT 'Active', -- Active, Completed, Failed
+    created_by VARCHAR(128) NOT NULL DEFAULT current_user,
+    description TEXT
+);
+```
+
+#### SQL Server Schema
+
+```sql
+-- TraceSessions table
 CREATE TABLE [dbo].[TraceSessions] (
     [SessionId] UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    [SessionName] NVARCHAR(255) NOT NULL,
+    [SessionName] NVARCHAR(255) NOT NULL UNIQUE,
     [TestDatabase] NVARCHAR(128) NOT NULL,
     [SnapshotName] NVARCHAR(128) NULL,
-    [StartTime] DATETIME2(7) NOT NULL,
+    [StartTime] DATETIME2(7) NOT NULL DEFAULT SYSUTCDATETIME(),
     [EndTime] DATETIME2(7) NULL,
-    [Status] NVARCHAR(50) NOT NULL, -- Active, Completed, Failed
-    [CreatedBy] NVARCHAR(128) NOT NULL,
+    [Status] NVARCHAR(50) NOT NULL DEFAULT 'Active', -- Active, Completed, Failed
+    [CreatedBy] NVARCHAR(128) NOT NULL DEFAULT SUSER_NAME(),
     [Description] NVARCHAR(MAX) NULL
 );
 ```
 
 #### TraceEvents Table
 
+**PostgreSQL Schema:**
+
 ```sql
+-- TraceEvents table
+CREATE TABLE trace_events (
+    event_id BIGSERIAL PRIMARY KEY,
+    session_id UUID NOT NULL REFERENCES trace_sessions(session_id) ON DELETE CASCADE,
+    event_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    event_name VARCHAR(128) NOT NULL,
+    database_name VARCHAR(128),
+    login_name VARCHAR(128),
+    application_name VARCHAR(256),
+    host_name VARCHAR(128),
+    spid INTEGER,
+    duration BIGINT,
+    cpu_time BIGINT,
+    reads BIGINT,
+    writes BIGINT,
+    sql_text TEXT,
+    execution_order BIGINT NOT NULL,
+    is_replayable BOOLEAN NOT NULL DEFAULT true
+);
+
+CREATE INDEX idx_trace_events_session_execution ON trace_events(session_id, execution_order);
+CREATE INDEX idx_trace_events_event_time ON trace_events(event_time);
+```
+
+**SQL Server Schema:**
+
+```sql
+-- TraceEvents table
 CREATE TABLE [dbo].[TraceEvents] (
     [EventId] BIGINT IDENTITY(1,1) PRIMARY KEY,
     [SessionId] UNIQUEIDENTIFIER NOT NULL,
@@ -114,42 +175,133 @@ CREATE TABLE [dbo].[TraceEvents] (
     [Writes] BIGINT NULL,
     [SqlText] NVARCHAR(MAX) NULL,
     [ExecutionOrder] BIGINT NOT NULL,
-    FOREIGN KEY ([SessionId]) REFERENCES [TraceSessions]([SessionId])
+    [IsReplayable] BIT NOT NULL DEFAULT 1,
+    FOREIGN KEY ([SessionId]) REFERENCES [TraceSessions]([SessionId]) ON DELETE CASCADE
 );
+
+CREATE INDEX IX_TraceEvents_SessionId_ExecutionOrder ON [dbo].[TraceEvents] ([SessionId], [ExecutionOrder]);
+CREATE INDEX IX_TraceEvents_EventTime ON [dbo].[TraceEvents] ([EventTime]);
 ```
 
 #### CdcCaptures Table
 
+**PostgreSQL Schema:**
+
 ```sql
+-- CdcCaptures table
+CREATE TABLE cdc_captures (
+    capture_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES trace_sessions(session_id) ON DELETE CASCADE,
+    capture_type VARCHAR(50) NOT NULL, -- Baseline, Replay, Optimized
+    capture_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    table_name VARCHAR(256) NOT NULL,
+    capture_data JSONB NOT NULL, -- JSON data
+    record_count INTEGER NOT NULL,
+    data_hash VARCHAR(64) -- SHA256 hash for quick comparison
+);
+
+CREATE INDEX idx_cdc_captures_session_type ON cdc_captures(session_id, capture_type);
+```
+
+**SQL Server Schema:**
+
+```sql
+-- CdcCaptures table
 CREATE TABLE [dbo].[CdcCaptures] (
     [CaptureId] UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
     [SessionId] UNIQUEIDENTIFIER NOT NULL,
     [CaptureType] NVARCHAR(50) NOT NULL, -- Baseline, Replay, Optimized
-    [CaptureTime] DATETIME2(7) NOT NULL,
+    [CaptureTime] DATETIME2(7) NOT NULL DEFAULT SYSUTCDATETIME(),
     [TableName] NVARCHAR(256) NOT NULL,
     [CaptureData] NVARCHAR(MAX) NOT NULL, -- JSON data
     [RecordCount] INT NOT NULL,
-    FOREIGN KEY ([SessionId]) REFERENCES [TraceSessions]([SessionId])
+    [DataHash] NVARCHAR(64) NULL, -- SHA256 hash for quick comparison
+    FOREIGN KEY ([SessionId]) REFERENCES [TraceSessions]([SessionId]) ON DELETE CASCADE
 );
+
+CREATE INDEX IX_CdcCaptures_SessionId_CaptureType ON [dbo].[CdcCaptures] ([SessionId], [CaptureType]);
 ```
 
 #### ComparisonResults Table
 
+**PostgreSQL Schema:**
+
 ```sql
+-- ComparisonResults table
+CREATE TABLE comparison_results (
+    comparison_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES trace_sessions(session_id) ON DELETE CASCADE,
+    left_capture_id UUID NOT NULL REFERENCES cdc_captures(capture_id),
+    right_capture_id UUID NOT NULL REFERENCES cdc_captures(capture_id),
+    comparison_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    table_name VARCHAR(256) NOT NULL,
+    is_match BOOLEAN NOT NULL,
+    difference_count INTEGER NOT NULL,
+    difference_data JSONB, -- JSON diff data
+    comparison_notes TEXT
+);
+```
+
+**SQL Server Schema:**
+
+```sql
+-- ComparisonResults table
 CREATE TABLE [dbo].[ComparisonResults] (
     [ComparisonId] UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
     [SessionId] UNIQUEIDENTIFIER NOT NULL,
     [LeftCaptureId] UNIQUEIDENTIFIER NOT NULL,
     [RightCaptureId] UNIQUEIDENTIFIER NOT NULL,
-    [ComparisonTime] DATETIME2(7) NOT NULL,
+    [ComparisonTime] DATETIME2(7) NOT NULL DEFAULT SYSUTCDATETIME(),
     [TableName] NVARCHAR(256) NOT NULL,
     [IsMatch] BIT NOT NULL,
     [DifferenceCount] INT NOT NULL,
     [DifferenceData] NVARCHAR(MAX) NULL, -- JSON diff data
-    FOREIGN KEY ([SessionId]) REFERENCES [TraceSessions]([SessionId]),
+    [ComparisonNotes] NVARCHAR(MAX) NULL,
+    FOREIGN KEY ([SessionId]) REFERENCES [TraceSessions]([SessionId]) ON DELETE CASCADE,
     FOREIGN KEY ([LeftCaptureId]) REFERENCES [CdcCaptures]([CaptureId]),
     FOREIGN KEY ([RightCaptureId]) REFERENCES [CdcCaptures]([CaptureId])
 );
+```
+
+### Database Abstraction Layer
+
+To support both PostgreSQL and SQL Server for trace storage, the system will include:
+
+#### Database Provider Interface
+
+```csharp
+public interface ITraceDataProvider
+{
+    Task<TraceSession> CreateSessionAsync(TraceConfiguration config);
+    Task<IEnumerable<TraceEvent>> GetTraceEventsAsync(Guid sessionId);
+    Task SaveCdcCaptureAsync(CdcCapture capture);
+    Task<ComparisonResult> SaveComparisonResultAsync(ComparisonResult result);
+    Task<bool> TestConnectionAsync();
+    Task InitializeSchemaAsync();
+}
+
+public class PostgreSqlTraceProvider : ITraceDataProvider
+{
+    // Implementation using Npgsql
+}
+
+public class SqlServerTraceProvider : ITraceDataProvider
+{
+    // Implementation using SqlClient
+}
+```
+
+#### Configuration Support
+
+```csharp
+public class TraceStorageConfiguration
+{
+    public string Provider { get; set; } = "PostgreSQL"; // PostgreSQL | SqlServer
+    public string ConnectionString { get; set; } = string.Empty;
+    public bool AutoCreateSchema { get; set; } = true;
+    public int CommandTimeout { get; set; } = 30;
+    public string SchemaName { get; set; } = "public"; // PostgreSQL schema or SQL Server schema
+}
 ```
 
 ## Core Library Extensions
@@ -380,23 +532,73 @@ public class TraceController : ControllerBase
 }
 ```
 
-#### Test Workflow
+#### Test Workflow (Composite Operations)
+
+The TestWorkflowController provides high-level composite operations that orchestrate multiple underlying service objects. This controller uses dependency injection to access the same business logic that individual controllers use, ensuring consistency and avoiding code duplication.
 
 ```csharp
 [ApiController]
 [Route("api/test-workflow")]
 public class TestWorkflowController : ControllerBase
 {
+    private readonly SnapshotManager _snapshotManager;
+    private readonly TraceManager _traceManager;
+    private readonly ReplayEngine _replayEngine;
+    private readonly CdcComparator _cdcComparator;
+    private readonly ILogger<TestWorkflowController> _logger;
+
+    public TestWorkflowController(
+        SnapshotManager snapshotManager,
+        TraceManager traceManager,
+        ReplayEngine replayEngine,
+        CdcComparator cdcComparator,
+        ILogger<TestWorkflowController> logger)
+    {
+        _snapshotManager = snapshotManager;
+        _traceManager = traceManager;
+        _replayEngine = replayEngine;
+        _cdcComparator = cdcComparator;
+        _logger = logger;
+    }
+
+    // Executes a complete test workflow using underlying service objects
     [HttpPost("execute")]
     public async Task<ActionResult<WorkflowResult>> ExecuteWorkflow([FromBody] WorkflowConfiguration config);
 
+    // Replays a trace session using ReplayEngine directly
     [HttpPost("replay/{sessionId}")]
     public async Task<ActionResult<ReplayResult>> ReplayTrace(Guid sessionId, [FromBody] ReplayOptions options);
 
+    // Compares CDC captures using CdcComparator directly
     [HttpPost("compare")]
     public async Task<ActionResult<ComparisonResult>> CompareCdcCaptures([FromBody] ComparisonRequest request);
 }
 ```
+
+**Architecture Pattern**: This controller uses the same underlying service objects that individual controllers use:
+
+- **SnapshotController** uses `SnapshotManager` → **TestWorkflowController** uses same `SnapshotManager`
+- **TraceController** uses `TraceManager` → **TestWorkflowController** uses same `TraceManager`
+- **ReplayController** uses `ReplayEngine` → **TestWorkflowController** uses same `ReplayEngine`
+
+**Purpose**: This controller provides "one-click" operations for common testing workflows. For example, `ExecuteWorkflow` might internally:
+
+1. Call `_snapshotManager.CreateSnapshotAsync()`
+2. Call `_traceManager.StartTraceAsync()`
+3. Wait for external test execution
+4. Call `_traceManager.StopTraceAsync()`
+5. Call `_cdcComparator.CompareCapturesAsync()`
+6. Return consolidated results
+
+**Benefits**:
+
+- **No code duplication** - Uses exact same business logic as individual controllers
+- **Consistency** - Same validation, error handling, and business rules
+- **Maintainability** - Changes to business logic automatically apply to both individual and composite operations
+- **Testability** - Can unit test the workflow logic independently
+- **Performance** - No HTTP overhead between internal operations
+
+This makes it easier for CI/CD systems and automated testing tools to integrate with the system while maintaining clean architecture principles.
 
 ## Implementation Phases
 
