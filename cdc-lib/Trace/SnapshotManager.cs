@@ -1,0 +1,369 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Softbase.Cdc.Models;
+
+namespace Softbase.Cdc.Trace
+{
+    public class SnapshotManager
+    {
+        private readonly SimpleDac _dac;
+        private readonly ILogger _logger;
+
+        public SnapshotManager(SimpleDac dac, ILogger logger)
+        {
+            _dac = dac ?? throw new ArgumentNullException(nameof(dac));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        }
+
+        public async Task<string> CreateSnapshotAsync(string databaseName, string snapshotName)
+        {
+            var result = await CreateSnapshotAsync(databaseName, snapshotName, string.Empty);
+            return result.Success ? snapshotName : throw new InvalidOperationException(result.Message);
+        }
+
+        public async Task<SnapshotResult> CreateSnapshotAsync(string databaseName, string snapshotName, string connectionString)
+        {
+            _logger.LogInformation("Creating snapshot {SnapshotName} for database {DatabaseName}", snapshotName, databaseName);
+
+            try
+            {
+                // Check if snapshot already exists
+                if (await SnapshotExistsAsync(snapshotName))
+                {
+                    return new SnapshotResult
+                    {
+                        Success = false,
+                        Message = $"Snapshot '{snapshotName}' already exists. Only one snapshot is allowed.",
+                        SnapshotName = snapshotName
+                    };
+                }
+
+                // Get database file paths
+                var dataFiles = await GetDatabaseFilesAsync(databaseName);
+
+                // Build CREATE DATABASE AS SNAPSHOT statement
+                var snapshotFiles = new List<string>();
+                foreach (var file in dataFiles)
+                {
+                    var snapshotFileName = $"{file.LogicalName}_snapshot.ss";
+                    var snapshotFilePath = Path.Combine(Path.GetDirectoryName(file.PhysicalName) ?? "", snapshotFileName);
+                    snapshotFiles.Add($"(NAME = '{file.LogicalName}', FILENAME = '{snapshotFilePath}')");
+                }
+
+                var createSnapshotSql = $@"
+                    CREATE DATABASE [{snapshotName}] ON
+                    {string.Join(",\n", snapshotFiles)}
+                    AS SNAPSHOT OF [{databaseName}];";
+
+                await _dac.ExecuteCommandAsync(createSnapshotSql);
+                _logger.LogInformation("Successfully created snapshot {SnapshotName}", snapshotName);
+
+                return new SnapshotResult
+                {
+                    Success = true,
+                    Message = "Snapshot created successfully",
+                    SnapshotName = snapshotName
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to create snapshot {SnapshotName}", snapshotName);
+                return new SnapshotResult
+                {
+                    Success = false,
+                    Message = $"Failed to create snapshot: {ex.Message}",
+                    SnapshotName = snapshotName,
+                    ErrorDetails = ex.ToString()
+                };
+            }
+        }
+
+        public async Task<SnapshotResult> RestoreSnapshotAsync(string snapshotName, string targetDatabaseName, string connectionString)
+        {
+            _logger.LogInformation("Restoring snapshot {SnapshotName} to database {TargetDatabase}", snapshotName, targetDatabaseName);
+
+            try
+            {
+                // Check if snapshot exists
+                if (!await SnapshotExistsAsync(snapshotName))
+                {
+                    return new SnapshotResult
+                    {
+                        Success = false,
+                        Message = $"Snapshot '{snapshotName}' does not exist",
+                        SnapshotName = snapshotName
+                    };
+                }
+
+                // Drop target database if it exists
+                var dropSql = $@"
+                    IF EXISTS (SELECT name FROM sys.databases WHERE name = '{targetDatabaseName}')
+                    BEGIN
+                        ALTER DATABASE [{targetDatabaseName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+                        DROP DATABASE [{targetDatabaseName}];
+                    END";
+
+                await _dac.ExecuteCommandAsync(dropSql);
+
+                // Restore from snapshot by creating a new database from the snapshot
+                var restoreSql = $@"
+                    RESTORE DATABASE [{targetDatabaseName}]
+                    FROM DATABASE_SNAPSHOT = '{snapshotName}'";
+
+                await _dac.ExecuteCommandAsync(restoreSql);
+                _logger.LogInformation("Successfully restored snapshot {SnapshotName} to {TargetDatabase}", snapshotName, targetDatabaseName);
+
+                return new SnapshotResult
+                {
+                    Success = true,
+                    Message = "Snapshot restored successfully",
+                    SnapshotName = snapshotName
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to restore snapshot {SnapshotName}", snapshotName);
+                return new SnapshotResult
+                {
+                    Success = false,
+                    Message = $"Failed to restore snapshot: {ex.Message}",
+                    SnapshotName = snapshotName,
+                    ErrorDetails = ex.ToString()
+                };
+            }
+        }
+
+        public async Task<bool> SnapshotExistsAsync(string snapshotName)
+        {
+            const string checkSnapshotSql = @"
+                SELECT COUNT(1)
+                FROM sys.databases
+                WHERE name = @snapshotName AND source_database_id IS NOT NULL";
+
+            var count = await _dac.ExecuteScalarAsync<int>(checkSnapshotSql, new Dictionary<string, object>
+            {
+                ["@snapshotName"] = snapshotName
+            });
+
+            return count > 0;
+        }
+
+        public async Task RestoreFromSnapshotAsync(string databaseName, string snapshotName)
+        {
+            _logger.LogInformation("Restoring database {DatabaseName} from snapshot {SnapshotName}", databaseName, snapshotName);
+
+            if (!await SnapshotExistsAsync(snapshotName))
+            {
+                throw new InvalidOperationException($"Snapshot '{snapshotName}' does not exist.");
+            }
+
+            // Set database to single user mode
+            var setSingleUserSql = $"ALTER DATABASE [{databaseName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;";
+
+            // Restore from snapshot
+            var restoreSql = $"RESTORE DATABASE [{databaseName}] FROM DATABASE_SNAPSHOT = '{snapshotName}';";
+
+            // Set back to multi user mode
+            var setMultiUserSql = $"ALTER DATABASE [{databaseName}] SET MULTI_USER;";
+
+            try
+            {
+                await _dac.ExecuteCommandAsync(setSingleUserSql);
+                await _dac.ExecuteCommandAsync(restoreSql);
+                await _dac.ExecuteCommandAsync(setMultiUserSql);
+
+                _logger.LogInformation("Successfully restored database {DatabaseName} from snapshot {SnapshotName}", databaseName, snapshotName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to restore database {DatabaseName} from snapshot {SnapshotName}", databaseName, snapshotName);
+
+                // Try to set back to multi user mode if restore failed
+                try
+                {
+                    await _dac.ExecuteCommandAsync(setMultiUserSql);
+                }
+                catch (Exception cleanupEx)
+                {
+                    _logger.LogError(cleanupEx, "Failed to reset database to multi-user mode after restore failure");
+                }
+
+                throw;
+            }
+        }
+
+        public async Task<SnapshotResult> DropSnapshotAsync(string snapshotName, string connectionString)
+        {
+            _logger.LogInformation("Dropping snapshot {SnapshotName}", snapshotName);
+
+            try
+            {
+                if (!await SnapshotExistsAsync(snapshotName))
+                {
+                    return new SnapshotResult
+                    {
+                        Success = false,
+                        Message = $"Snapshot '{snapshotName}' does not exist",
+                        SnapshotName = snapshotName
+                    };
+                }
+
+                await DropSnapshotAsync(snapshotName);
+
+                return new SnapshotResult
+                {
+                    Success = true,
+                    Message = "Snapshot dropped successfully",
+                    SnapshotName = snapshotName
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to drop snapshot {SnapshotName}", snapshotName);
+                return new SnapshotResult
+                {
+                    Success = false,
+                    Message = $"Failed to drop snapshot: {ex.Message}",
+                    SnapshotName = snapshotName,
+                    ErrorDetails = ex.ToString()
+                };
+            }
+        }
+
+        public async Task DropSnapshotAsync(string snapshotName)
+        {
+            _logger.LogInformation("Dropping snapshot {SnapshotName}", snapshotName);
+
+            if (!await SnapshotExistsAsync(snapshotName))
+            {
+                _logger.LogWarning("Snapshot {SnapshotName} does not exist, nothing to drop", snapshotName);
+                return;
+            }
+
+            var dropSnapshotSql = $"DROP DATABASE [{snapshotName}];";
+
+            try
+            {
+                await _dac.ExecuteCommandAsync(dropSnapshotSql);
+                _logger.LogInformation("Successfully dropped snapshot {SnapshotName}", snapshotName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to drop snapshot {SnapshotName}", snapshotName);
+                throw;
+            }
+        }
+
+        public async Task<SnapshotInfo> GetSnapshotInfoAsync(string snapshotName)
+        {
+            const string getSnapshotInfoSql = @"
+                SELECT
+                    d.name AS SnapshotName,
+                    sd.name AS SourceDatabase,
+                    d.create_date AS CreatedTime,
+                    ISNULL(SUM(mf.size * 8 * 1024), 0) AS SizeInBytes,
+                    d.state_desc AS Status
+                FROM sys.databases d
+                LEFT JOIN sys.databases sd ON d.source_database_id = sd.database_id
+                LEFT JOIN sys.master_files mf ON d.database_id = mf.database_id
+                WHERE d.name = @snapshotName AND d.source_database_id IS NOT NULL
+                GROUP BY d.name, sd.name, d.create_date, d.state_desc";
+
+            return await _dac.ExecuteReaderAsync(getSnapshotInfoSql, reader =>
+            {
+                if (reader.Read())
+                {
+                    return new SnapshotInfo
+                    {
+                        SnapshotName = reader.GetString(0),
+                        SourceDatabase = reader.GetString(1),
+                        CreatedTime = reader.GetDateTime(2),
+                        SizeInBytes = reader.GetInt64(3),
+                        Status = reader.GetString(4)
+                    };
+                }
+                throw new InvalidOperationException($"Snapshot '{snapshotName}' not found.");
+            }, new Dictionary<string, object>
+            {
+                ["@snapshotName"] = snapshotName
+            });
+        }
+
+        public async Task<List<SnapshotInfo>> ListSnapshotsAsync(string databaseName, string connectionString)
+        {
+            // For API compatibility - filter by database name if provided
+            var allSnapshots = await ListSnapshotsAsync();
+            if (string.IsNullOrEmpty(databaseName))
+                return allSnapshots;
+
+            return allSnapshots.Where(s => s.SourceDatabase.Equals(databaseName, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
+        public async Task<List<SnapshotInfo>> ListSnapshotsAsync()
+        {
+            const string listSnapshotsSql = @"
+                SELECT
+                    d.name AS SnapshotName,
+                    sd.name AS SourceDatabase,
+                    d.create_date AS CreatedTime,
+                    ISNULL(SUM(mf.size * 8 * 1024), 0) AS SizeInBytes,
+                    d.state_desc AS Status
+                FROM sys.databases d
+                LEFT JOIN sys.databases sd ON d.source_database_id = sd.database_id
+                LEFT JOIN sys.master_files mf ON d.database_id = mf.database_id
+                WHERE d.source_database_id IS NOT NULL
+                GROUP BY d.name, sd.name, d.create_date, d.state_desc
+                ORDER BY d.create_date DESC";
+
+            return await _dac.ExecuteReaderAsync(listSnapshotsSql, reader =>
+            {
+                var snapshots = new List<SnapshotInfo>();
+                while (reader.Read())
+                {
+                    snapshots.Add(new SnapshotInfo
+                    {
+                        SnapshotName = reader.GetString(0),
+                        SourceDatabase = reader.GetString(1),
+                        CreatedTime = reader.GetDateTime(2),
+                        SizeInBytes = reader.GetInt64(3),
+                        Status = reader.GetString(4)
+                    });
+                }
+                return snapshots;
+            });
+        }
+
+        private async Task<List<DatabaseFileInfo>> GetDatabaseFilesAsync(string databaseName)
+        {
+            const string getFilesSql = @"
+                SELECT 
+                    name AS LogicalName,
+                    physical_name AS PhysicalName,
+                    type_desc AS FileType
+                FROM sys.master_files 
+                WHERE database_id = DB_ID(@databaseName) AND type = 0"; // Only data files for snapshots
+
+            return await _dac.ExecuteReaderAsync(getFilesSql, reader =>
+            {
+                var files = new List<DatabaseFileInfo>();
+                while (reader.Read())
+                {
+                    files.Add(new DatabaseFileInfo
+                    {
+                        LogicalName = reader.GetString(0),
+                        PhysicalName = reader.GetString(1),
+                        FileType = reader.GetString(2)
+                    });
+                }
+                return files;
+            }, new Dictionary<string, object>
+            {
+                ["@databaseName"] = databaseName
+            });
+        }
+    }
+}

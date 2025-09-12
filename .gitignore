@@ -52,3 +52,8 @@ src/assets/metronic/themes/**/css/*.min.css
 src/assets/fonts/*min.css
 
 src/assets/metronic/themes/default/css/skins/**/*.min.css
+
+# Environment files
+.env
+.env.local
+.env.*.local

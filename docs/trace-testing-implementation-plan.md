@@ -4,13 +4,96 @@
 
 This document provides detailed implementation guidance for building the SQL tracing and replicatable testing environment. It includes specific code examples, technical specifications, and step-by-step implementation instructions.
 
+## Database Platform Support
+
+The system supports:
+
+- **Test Database**: SQL Server (where CDC and snapshots are managed)
+- **Trace Database**: PostgreSQL or SQL Server (configurable, stores trace data and CDC captures)
+
+This separation allows for isolation of trace data from test environment and cross-platform compatibility.
+
 ## Phase 1: Core Infrastructure Implementation
 
 ### 1.1 Database Schema Setup
 
-#### Trace Database Initialization Script
+#### PostgreSQL Trace Database Initialization Script
 
-Create `scripts/create-trace-database.sql`:
+Create `scripts/create-trace-database-postgresql.sql`:
+
+```sql
+-- Create trace database and schema
+CREATE DATABASE cdc_tracedb;
+
+\c cdc_tracedb;
+
+-- Create tables
+CREATE TABLE trace_sessions (
+    session_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_name VARCHAR(255) NOT NULL UNIQUE,
+    test_database VARCHAR(128) NOT NULL,
+    test_connection_string VARCHAR(1000) NOT NULL,
+    snapshot_name VARCHAR(128),
+    start_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    end_time TIMESTAMP WITH TIME ZONE,
+    status VARCHAR(50) NOT NULL DEFAULT 'Active',
+    created_by VARCHAR(128) NOT NULL DEFAULT current_user,
+    description TEXT,
+    configuration JSONB -- JSON configuration
+);
+
+CREATE TABLE trace_events (
+    event_id BIGSERIAL PRIMARY KEY,
+    session_id UUID NOT NULL REFERENCES trace_sessions(session_id) ON DELETE CASCADE,
+    event_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    event_name VARCHAR(128) NOT NULL,
+    database_name VARCHAR(128),
+    login_name VARCHAR(128),
+    application_name VARCHAR(256),
+    host_name VARCHAR(128),
+    spid INTEGER,
+    duration BIGINT,
+    cpu_time BIGINT,
+    reads BIGINT,
+    writes BIGINT,
+    sql_text TEXT,
+    execution_order BIGINT NOT NULL,
+    is_replayable BOOLEAN NOT NULL DEFAULT true
+);
+
+CREATE INDEX idx_trace_events_session_execution ON trace_events(session_id, execution_order);
+CREATE INDEX idx_trace_events_event_time ON trace_events(event_time);
+
+CREATE TABLE cdc_captures (
+    capture_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES trace_sessions(session_id) ON DELETE CASCADE,
+    capture_type VARCHAR(50) NOT NULL, -- Baseline, Replay, Optimized
+    capture_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    table_name VARCHAR(256) NOT NULL,
+    capture_data JSONB NOT NULL, -- JSON data
+    record_count INTEGER NOT NULL,
+    data_hash VARCHAR(64) -- SHA256 hash for quick comparison
+);
+
+CREATE INDEX idx_cdc_captures_session_type ON cdc_captures(session_id, capture_type);
+
+CREATE TABLE comparison_results (
+    comparison_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES trace_sessions(session_id) ON DELETE CASCADE,
+    left_capture_id UUID NOT NULL REFERENCES cdc_captures(capture_id),
+    right_capture_id UUID NOT NULL REFERENCES cdc_captures(capture_id),
+    comparison_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    table_name VARCHAR(256) NOT NULL,
+    is_match BOOLEAN NOT NULL,
+    difference_count INTEGER NOT NULL,
+    difference_data JSONB, -- JSON diff data
+    comparison_notes TEXT
+);
+```
+
+#### SQL Server Trace Database Initialization Script
+
+Create `scripts/create-trace-database-sqlserver.sql`:
 
 ```sql
 -- Create trace database if it doesn't exist

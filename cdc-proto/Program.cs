@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Softbase;
+using CdcProto.Commands;
 
 
 class Program
@@ -124,6 +125,11 @@ public static class SystemCommandLineExtensions
         {
             services.AddSingleton(baseCommandType, command);
         }
+
+        // Add new trace commands
+        services.AddSingleton<Command>(SnapshotCommand.CreateCommand());
+        services.AddSingleton<Command>(TraceCommand.CreateCommand());
+        services.AddSingleton<Command>(ReplayCommand.CreateCommand());
 
         return services;
     }
@@ -354,5 +360,5 @@ internal class OldProgram
     //    }
     //}
 
-    
+
 }
