@@ -23,7 +23,6 @@ graph TB
         CLI[cdc-proto CLI Tool]
         LIB[cdc-lib Core Library]
         API[cdc-api Web API]
-        MAUI[cdc-maui Desktop App]
     end
 
     subgraph "SQL Server Environment"
@@ -35,7 +34,6 @@ graph TB
 
     CLI --> LIB
     API --> LIB
-    MAUI --> LIB
     LIB --> DB
     LIB --> SNAP
     LIB --> CDC
@@ -90,24 +88,12 @@ ASP.NET Core Web API providing HTTP endpoints for CDC operations.
 - Swagger/OpenAPI documentation
 - Development and production configurations
 
-### [`cdc-maui`](../cdc-maui/) - Desktop Application
-
-.NET MAUI cross-platform desktop application for visual CDC management.
-
-**Platforms:**
-
-- Windows
-- macOS (via Mac Catalyst)
-- iOS (future)
-- Android (future)
-
 ## Key Technologies
 
 - **.NET 6+**: Modern .NET framework
 - **SQL Server**: Database platform with CDC support
 - **System.CommandLine**: Modern command-line parsing
 - **ASP.NET Core**: Web API framework
-- **.NET MAUI**: Cross-platform UI framework
 - **Newtonsoft.Json**: JSON serialization
 - **Microsoft.Extensions.Logging**: Structured logging
 
@@ -262,8 +248,7 @@ The framework is designed for extensibility:
 1. **Custom Comparers**: Implement custom logic for specific data types
 2. **Additional Commands**: Extend the CLI with new operations
 3. **API Endpoints**: Add new HTTP endpoints for specific workflows
-4. **UI Components**: Extend the MAUI application with additional views
-5. **Data Exporters**: Add support for different output formats
+4. **Data Exporters**: Add support for different output formats
 
 ## Future Enhancements
 
