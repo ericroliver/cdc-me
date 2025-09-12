@@ -1,5 +1,10 @@
 -- Create trace database and schema for SQL Server
--- Connection: Server=blue.local;Database=master;User Id=sa;Password=A123_Z321!;TrustServerCertificate=true;
+--
+-- IMPORTANT: This script requires a connection string environment variable.
+-- Create a .env file in the project root with:
+-- SQLSERVER_CONNECTION_STRING=Server=your-host;Database=master;User Id=your-username;Password=your-password;TrustServerCertificate=true;
+--
+-- Use the SQLSERVER_CONNECTION_STRING environment variable to connect to your SQL Server.
 
 -- Create trace database if it doesn't exist
 IF NOT EXISTS (SELECT name

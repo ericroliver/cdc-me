@@ -1,5 +1,10 @@
 -- Create trace database and schema for PostgreSQL
--- Connection: Host=blue.local;Database=postgres;Username=postgres;Password=A123_Z321!
+--
+-- IMPORTANT: This script requires a connection string environment variable.
+-- Create a .env file in the project root with:
+-- POSTGRES_CONNECTION_STRING=Host=your-host;Database=postgres;Username=your-username;Password=your-password
+--
+-- Use the POSTGRES_CONNECTION_STRING environment variable to connect to your PostgreSQL server.
 
 -- Create trace database if it doesn't exist
 SELECT 'CREATE DATABASE cdc_tracedb'
