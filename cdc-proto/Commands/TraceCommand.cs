@@ -298,8 +298,8 @@ namespace CdcProto.Commands
             if (!string.IsNullOrEmpty(envConnection))
                 return envConnection;
 
-            // Default connection string for blue.local
-            return "Server=blue.local;Database=master;User Id=sa;Password=A123_Z321!;TrustServerCertificate=true;";
+            // No hardcoded fallback - require environment variable
+            throw new InvalidOperationException("Test connection string not provided. Please specify --test-connection parameter or set CDC_TEST_CONNECTION environment variable.");
         }
 
         private static string GetTraceConnectionString(string connection, string provider)
@@ -312,13 +312,8 @@ namespace CdcProto.Commands
             if (!string.IsNullOrEmpty(envConnection))
                 return envConnection;
 
-            // Default connection strings for blue.local
-            return provider.ToLower() switch
-            {
-                "postgresql" => "Host=blue.local;Database=cdc_tracedb;Username=postgres;Password=A123_Z321!",
-                "sqlserver" => "Server=blue.local;Database=CDC_TraceDB;User Id=sa;Password=A123_Z321!;TrustServerCertificate=true;",
-                _ => throw new ArgumentException($"Unsupported provider: {provider}")
-            };
+            // No hardcoded fallback - require environment variable
+            throw new InvalidOperationException("Trace connection string not provided. Please specify --trace-connection parameter or set CDC_TRACE_CONNECTION environment variable.");
         }
 
         private static ITraceDataProvider CreateTraceProvider(string provider, string connectionString, ILogger logger)

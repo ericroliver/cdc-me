@@ -205,8 +205,8 @@ namespace CdcProto.Commands
             if (!string.IsNullOrEmpty(envConnection))
                 return envConnection;
 
-            // Default connection string for blue.local
-            return "Server=blue.local;Database=master;User Id=sa;Password=A123_Z321!;TrustServerCertificate=true;";
+            // No hardcoded fallback - require environment variable
+            throw new InvalidOperationException("Connection string not provided. Please specify --connection parameter or set CDC_SQL_CONNECTION environment variable.");
         }
 
         private static ILogger CreateLogger()
