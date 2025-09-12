@@ -15,7 +15,6 @@ Welcome to the comprehensive documentation for the CDC Testing Framework. This d
 - **[CDC Library](cdc-library.md)** - Core library API reference and functionality
 - **[CLI Tool](cli-tool.md)** - Command-line interface complete reference
 - **[Web API](web-api.md)** - REST API endpoints and usage guide
-- **[MAUI Application](maui-app.md)** - Desktop application features and usage
 
 ### Advanced Topics
 
@@ -42,8 +41,7 @@ Welcome to the comprehensive documentation for the CDC Testing Framework. This d
 ### For End Users
 
 1. Begin with [Getting Started Guide](getting-started.md)
-2. Use [MAUI Application](maui-app.md) for GUI operations
-3. Reference [Usage Examples](usage-examples.md) for workflows
+2. Reference [Usage Examples](usage-examples.md) for workflows
 
 ## 🎯 Key Concepts
 
@@ -71,7 +69,6 @@ graph TB
         CLI[cdc-proto CLI Tool]
         LIB[cdc-lib Core Library]
         API[cdc-api Web API]
-        MAUI[cdc-maui Desktop App]
     end
 
     subgraph "Documentation"
@@ -82,10 +79,8 @@ graph TB
 
     CLI --> LIB
     API --> LIB
-    MAUI --> LIB
     DOCS --> CLI
     DOCS --> API
-    DOCS --> MAUI
     EXAMPLES --> DOCS
     GUIDES --> DOCS
 ```
@@ -154,7 +149,6 @@ graph TB
 - **Core Library**: [CDC Library Documentation](cdc-library.md)
 - **Command Line**: [CLI Tool Documentation](cli-tool.md)
 - **Web API**: [Web API Documentation](web-api.md)
-- **Desktop App**: [MAUI Application Documentation](maui-app.md)
 
 ### By Skill Level
 

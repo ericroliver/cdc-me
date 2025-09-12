@@ -79,12 +79,10 @@ graph TB
     subgraph "CDC Testing Framework"
         CLI[CLI Tool]
         API[Web API]
-        MAUI[MAUI App]
     end
 
     CLI --> FUNCS
     API --> FUNCS
-    MAUI --> FUNCS
 ```
 
 ### CDC System Tables

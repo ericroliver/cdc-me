@@ -29,7 +29,6 @@ graph TB
         CLI[cdc-proto CLI Tool]
         LIB[cdc-lib Core Library]
         API[cdc-api Web API]
-        MAUI[cdc-maui Desktop App]
     end
 
     subgraph "Test Environment"
@@ -53,7 +52,6 @@ graph TB
 
     CLI --> LIB
     API --> LIB
-    MAUI --> LIB
 
     LIB --> SNAPSHOT_MGR
     LIB --> TRACE_MGR

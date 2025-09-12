@@ -65,7 +65,6 @@ docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=YourStrong@Passw0rd" \
 **Visual Studio 2022 (Windows/Mac):**
 
 - Download from [Visual Studio](https://visualstudio.microsoft.com/)
-- Include ".NET Multi-platform App UI development" workload for MAUI
 - Include "ASP.NET and web development" workload for Web API
 
 **Visual Studio Code (Cross-platform):**
@@ -73,7 +72,6 @@ docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=YourStrong@Passw0rd" \
 ```bash
 # Install VS Code extensions
 code --install-extension ms-dotnettools.csharp
-code --install-extension ms-dotnettools.dotnet-maui
 ```
 
 ## Project Setup
@@ -95,7 +93,6 @@ dotnet restore
 dotnet restore cdc-lib/cdc-lib.csproj
 dotnet restore cdc-proto/cdc-utility.csproj
 dotnet restore cdc-api/cdc-api.csproj
-dotnet restore cdc-maui/cdc-maui.csproj
 ```
 
 ### 3. Build the Solution
@@ -200,21 +197,6 @@ Create `cdc-api/appsettings.json` with connection string:
 }
 ```
 
-**MAUI App Configuration:**
-Update the connection string logic in `cdc-maui/MainPage.xaml.cs`:
-
-```csharp
-private string GetConnectionStringForSelectedSystem()
-{
-    return selectedDatabase.SelectedItem?.ToString() switch
-    {
-        "Local Docker V3" => "Server=localhost,1433;Database=CdcTestDB;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=true;",
-        "Test System" => "Server=localhost;Database=CdcTestDB;Integrated Security=true;TrustServerCertificate=true;",
-        _ => throw new InvalidOperationException("Please select a system")
-    };
-}
-```
-
 ## First Run
 
 ### 1. Test the CLI Tool
@@ -286,17 +268,6 @@ Open your browser and navigate to: `https://localhost:7297/swagger`
 ```bash
 curl -X POST https://localhost:7297/Cdc -k
 ```
-
-### 4. Test the MAUI App
-
-**Run the desktop app:**
-
-```bash
-cd ../cdc-maui
-dotnet run
-```
-
-The application should launch with the CDC interface.
 
 ## Basic Workflow Example
 
@@ -419,14 +390,6 @@ EXEC sys.sp_cdc_enable_db;
 -- Add primary key to table
 ALTER TABLE YourTable ADD CONSTRAINT PK_YourTable PRIMARY KEY (YourColumn);
 ```
-
-### Issue: Build errors in MAUI project
-
-**Solution:**
-
-- Ensure all required workloads are installed in Visual Studio
-- Check target framework versions
-- Restore NuGet packages
 
 ## Next Steps
 

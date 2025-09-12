@@ -22,7 +22,6 @@ graph TB
         CLI[cdc-proto CLI Tool]
         LIB[cdc-lib Core Library]
         API[cdc-api Web API]
-        MAUI[cdc-maui Desktop App]
     end
 
     subgraph "SQL Server Environment"
@@ -34,7 +33,6 @@ graph TB
 
     CLI --> LIB
     API --> LIB
-    MAUI --> LIB
     LIB --> DB
     LIB --> SNAP
     LIB --> CDC
@@ -46,7 +44,6 @@ graph TB
 - **[`cdc-lib`](docs/cdc-library.md)** - Core library with CDC operations, data models, and utilities
 - **[`cdc-proto`](docs/cli-tool.md)** - Command-line interface for CDC operations
 - **[`cdc-api`](docs/web-api.md)** - RESTful Web API for HTTP-based CDC operations
-- **[`cdc-maui`](docs/maui-app.md)** - Cross-platform desktop application with GUI
 
 ## 🚀 Quick Start
 
@@ -128,14 +125,6 @@ dotnet run
 # Navigate to: https://localhost:7297/swagger
 ```
 
-#### Using the Desktop App
-
-```bash
-# Run the MAUI application
-cd cdc-maui
-dotnet run
-```
-
 ## 📖 Documentation
 
 ### Getting Started
@@ -150,7 +139,6 @@ dotnet run
 - **[CDC Library](docs/cdc-library.md)** - Core library API and functionality
 - **[CLI Tool](docs/cli-tool.md)** - Command-line interface reference
 - **[Web API](docs/web-api.md)** - REST API endpoints and usage
-- **[MAUI App](docs/maui-app.md)** - Desktop application features
 
 ### Advanced Topics
 
@@ -258,7 +246,6 @@ cdc-me/
 ├── cdc-lib/           # Core CDC library
 ├── cdc-proto/         # CLI application
 ├── cdc-api/           # Web API
-├── cdc-maui/          # Desktop application
 ├── docs/              # Documentation
 └── readme.md          # This file
 ```
@@ -294,12 +281,6 @@ var connectionString = "Server=localhost;Database=YourDB;User Id=sa;Password=You
 }
 ```
 
-**MAUI App** (`cdc-maui/MainPage.xaml.cs`):
-
-```csharp
-private string GetConnectionString() => "Server=localhost;Database=YourDB;User Id=sa;Password=YourPassword;TrustServerCertificate=true;";
-```
-
 ## 📊 Features
 
 ### Current Features
@@ -309,7 +290,6 @@ private string GetConnectionString() => "Server=localhost;Database=YourDB;User I
 - ✅ Profile comparison and difference analysis
 - ✅ Command-line interface with multiple commands
 - ✅ RESTful Web API
-- ✅ Cross-platform desktop application
 - ✅ JSON-based profile storage and exchange
 - ✅ Comprehensive error handling and logging
 
@@ -369,14 +349,12 @@ For more detailed troubleshooting, see the [Troubleshooting Guide](docs/troubles
 - **.NET SDK**: 6.0 or later
 - **Frameworks**:
   - .NET 6.0 (CLI, API, Library)
-  - .NET 6.0 with MAUI workloads (Desktop App)
 
 ### Platform Support
 
 - **Windows**: Full support (all components)
-- **macOS**: CLI, API, Library, Desktop App (via Mac Catalyst)
+- **macOS**: CLI, API, Library
 - **Linux**: CLI, API, Library
-- **Android/iOS**: Desktop App (MAUI cross-platform)
 
 ## 📄 License
 
@@ -391,7 +369,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🔗 Related Resources
 
 - [SQL Server Change Data Capture Documentation](https://docs.microsoft.com/en-us/sql/relational-databases/track-changes/about-change-data-capture-sql-server)
-- [.NET MAUI Documentation](https://docs.microsoft.com/en-us/dotnet/maui/)
 - [ASP.NET Core Web API Documentation](https://docs.microsoft.com/en-us/aspnet/core/web-api/)
 - [System.CommandLine Documentation](https://docs.microsoft.com/en-us/dotnet/standard/commandline/)
 

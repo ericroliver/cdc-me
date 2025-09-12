@@ -14,7 +14,6 @@ graph TB
         DEV[Developer]
         CLI[CLI Tool]
         API[Web API]
-        MAUI[MAUI App]
 
         subgraph "Local SQL Server"
             DB[(Test Database)]
@@ -24,10 +23,8 @@ graph TB
 
     DEV --> CLI
     DEV --> API
-    DEV --> MAUI
     CLI --> DB
     API --> DB
-    MAUI --> DB
 ```
 
 **Use Case**: Individual developer testing and experimentation
@@ -366,56 +363,6 @@ spec:
     }
   }
 }
-```
-
-### MAUI Application Deployment
-
-#### Windows (MSIX Package)
-
-```xml
-<!-- Package.appxmanifest -->
-<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10">
-  <Identity Name="CDC.TestingFramework"
-            Publisher="CN=YourCompany"
-            Version="1.0.0.0" />
-  <Properties>
-    <DisplayName>CDC Testing Framework</DisplayName>
-    <PublisherDisplayName>Your Company</PublisherDisplayName>
-    <Logo>Images\StoreLogo.png</Logo>
-  </Properties>
-  <Dependencies>
-    <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
-  </Dependencies>
-  <Applications>
-    <Application Id="App" Executable="cdc-maui.exe" EntryPoint="Windows.FullTrustApplication">
-      <uap:VisualElements DisplayName="CDC Testing Framework"
-                          Square150x150Logo="Images\Square150x150Logo.png"
-                          Square44x44Logo="Images\Square44x44Logo.png"
-                          BackgroundColor="transparent">
-      </uap:VisualElements>
-    </Application>
-  </Applications>
-</Package>
-```
-
-#### macOS (App Bundle)
-
-```bash
-# Build for macOS
-dotnet publish cdc-maui -f net6.0-maccatalyst -c Release
-
-# Create installer package
-productbuild --component "bin/Release/net6.0-maccatalyst/cdc-maui.app" /Applications "CDC-Testing-Framework.pkg"
-```
-
-#### Android (APK)
-
-```bash
-# Build APK
-dotnet publish cdc-maui -f net6.0-android -c Release
-
-# Sign APK (for distribution)
-jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore your-keystore.keystore bin/Release/net6.0-android/cdc-maui-Signed.apk your-alias
 ```
 
 ## Configuration Management
