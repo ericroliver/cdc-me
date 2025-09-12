@@ -225,18 +225,20 @@ namespace CdcProto.Commands
                 Console.WriteLine(new string('-', 100));
 
                 var sessions = await traceProvider.GetActiveSessionsAsync();
-                if (!sessions.Any())
-                {
-                    Console.WriteLine("No active trace sessions found.");
-                    return;
-                }
 
                 Console.WriteLine($"{"Session Name",-25} {"Database",-15} {"Started",-20} {"Status",-10} {"Created By",-15}");
                 Console.WriteLine(new string('-', 100));
 
+                bool anySessions = false;
                 foreach (var session in sessions)
                 {
+                    anySessions = true;
                     Console.WriteLine($"{session.SessionName,-25} {session.TestDatabase,-15} {session.StartTime:yyyy-MM-dd HH:mm,-20} {session.Status,-10} {session.CreatedBy,-15}");
+                }
+
+                if (!anySessions)
+                {
+                    Console.WriteLine("No active trace sessions found.");
                 }
             }
             catch (Exception ex)

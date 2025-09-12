@@ -302,7 +302,7 @@ public class TraceController : ControllerBase
             }
 
             // Stop trace if running
-            if (session.Status == TraceStatus.Running)
+            if (session.Status == "Active")
             {
                 await _traceManager.StopTraceAsync(sessionId);
             }
