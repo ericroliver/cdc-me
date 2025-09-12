@@ -8,7 +8,7 @@
 
 -- Create trace database if it doesn't exist
 SELECT 'CREATE DATABASE cdc_tracedb'
-WHERE NOT EXISTS (SELECT
+WHERE NOT EXISTS (SELECT 1
 FROM pg_database
 WHERE datname = 'cdc_tracedb')
 \gexec

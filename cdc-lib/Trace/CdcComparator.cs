@@ -277,8 +277,8 @@ namespace Softbase.Cdc.Trace
             try
             {
                 // Normalize data for comparison
-                var normalizedLeft = leftData.Select(row => NormalizeCdcDataAsync(row).Result).Cast<Dictionary<string, object>>().ToList();
-                var normalizedRight = rightData.Select(row => NormalizeCdcDataAsync(row).Result).Cast<Dictionary<string, object>>().ToList();
+                var normalizedLeft = (await Task.WhenAll(leftData.Select(row => NormalizeCdcDataAsync(row)))).Cast<Dictionary<string, object>>().ToList();
+                var normalizedRight = (await Task.WhenAll(rightData.Select(row => NormalizeCdcDataAsync(row)))).Cast<Dictionary<string, object>>().ToList();
 
                 // Create lookup dictionaries based on primary key or row hash
                 var leftLookup = CreateRowLookup(normalizedLeft);
