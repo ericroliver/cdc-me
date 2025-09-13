@@ -71,9 +71,14 @@ namespace cdc_api.Data
             _logger = logger;
         }
 
-        public IDisposable BeginScope<TState>(TState state) => _logger.BeginScope(state);
+        public IDisposable BeginScope<TState>(TState state) => _logger.BeginScope(state) ?? new EmptyDisposable();
         public bool IsEnabled(LogLevel logLevel) => _logger.IsEnabled(logLevel);
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
             => _logger.Log(logLevel, eventId, state, exception, formatter);
+    }
+
+    internal class EmptyDisposable : IDisposable
+    {
+        public void Dispose() { }
     }
 }

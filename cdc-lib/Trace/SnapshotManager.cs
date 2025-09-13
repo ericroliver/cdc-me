@@ -8,7 +8,7 @@ using Softbase.Cdc.Models;
 
 namespace Softbase.Cdc.Trace
 {
-    public class SnapshotManager
+    public class SnapshotManager : ISnapshotManager
     {
         private readonly SimpleDac _dac;
         private readonly ILogger _logger;

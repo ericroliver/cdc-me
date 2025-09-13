@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using Newtonsoft.Json;
 using Softbase.Cdc.Models;
 using System.Data;

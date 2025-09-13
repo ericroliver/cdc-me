@@ -9,9 +9,9 @@ namespace cdc_api.Controllers;
 public class SnapshotController : ControllerBase
 {
     private readonly ILogger<SnapshotController> _logger;
-    private readonly SnapshotManager _snapshotManager;
+    private readonly ISnapshotManager _snapshotManager;
 
-    public SnapshotController(ILogger<SnapshotController> logger, SnapshotManager snapshotManager)
+    public SnapshotController(ILogger<SnapshotController> logger, ISnapshotManager snapshotManager)
     {
         _logger = logger;
         _snapshotManager = snapshotManager;
@@ -25,6 +25,20 @@ public class SnapshotController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<SnapshotApiResult>> CreateSnapshot([FromBody] CreateSnapshotRequest request)
     {
+        // Validate required fields
+        if (string.IsNullOrWhiteSpace(request.DatabaseName) ||
+            string.IsNullOrWhiteSpace(request.SnapshotName) ||
+            string.IsNullOrWhiteSpace(request.ConnectionString))
+        {
+            return BadRequest(new SnapshotApiResult
+            {
+                Success = false,
+                Message = "Required fields are missing: DatabaseName, SnapshotName, and ConnectionString are all required.",
+                SnapshotName = request.SnapshotName,
+                DatabaseName = request.DatabaseName
+            });
+        }
+
         try
         {
             _logger.LogInformation("Creating snapshot {SnapshotName} for database {DatabaseName}",

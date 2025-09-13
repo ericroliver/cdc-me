@@ -180,7 +180,7 @@ namespace Softbase.Cdc.Configuration
             }
         }
 
-        private async Task ValidateSqlServerCapabilities(DatabaseRole role, ValidationResult result)
+        private Task ValidateSqlServerCapabilities(DatabaseRole role, ValidationResult result)
         {
             try
             {
@@ -219,9 +219,10 @@ namespace Softbase.Cdc.Configuration
                 result.Warnings.Add($"Could not validate SQL Server capabilities: {ex.Message}");
                 _logger.LogWarning(ex, "Error validating SQL Server capabilities");
             }
+            return Task.CompletedTask;
         }
 
-        private async Task ValidatePostgreSqlCapabilities(DatabaseRole role, ValidationResult result)
+        private Task ValidatePostgreSqlCapabilities(DatabaseRole role, ValidationResult result)
         {
             try
             {
@@ -252,6 +253,7 @@ namespace Softbase.Cdc.Configuration
                 result.Warnings.Add($"Could not validate PostgreSQL capabilities: {ex.Message}");
                 _logger.LogWarning(ex, "Error validating PostgreSQL capabilities");
             }
+            return Task.CompletedTask;
         }
 
         private static string MaskConnectionString(string connectionString)

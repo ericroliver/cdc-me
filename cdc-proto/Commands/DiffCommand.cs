@@ -39,13 +39,13 @@ namespace Softbase
             };
             this.AddOption(outFile);
 
-            this.Handler = CommandHandler.Create<string, string, string>((left, right, outfile) => this.HandleCommand(left, right,outfile));
+            this.Handler = CommandHandler.Create<string, string, string>((left, right, outfile) => this.HandleCommand(left, right, outfile));
 
         }
 
         private int HandleCommand(string left, string right, string outFile)
         {
-            var tableResult = default(IEnumerable<SqlTable>);
+            // var tableResult = default(IEnumerable<SqlTable>); // Unused variable - commented out
             try
             {
                 var rollup1 = File.ReadAllText(left).FromJson<IDictionary<string, IEnumerable<IDictionary<string, object>>>>();

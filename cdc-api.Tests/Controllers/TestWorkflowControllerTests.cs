@@ -24,11 +24,78 @@ public class TestWorkflowControllerTests : IClassFixture<WebApplicationFactory<P
             builder.ConfigureServices(services =>
             {
                 // Replace real services with mocks for testing
-                var mockSnapshotManager = new Mock<SnapshotManager>();
-                var mockTraceManager = new Mock<TraceManager>();
-                var mockReplayEngine = new Mock<ReplayEngine>();
-                var mockCdcComparator = new Mock<CdcComparator>();
+                var mockSnapshotManager = new Mock<ISnapshotManager>();
+                var mockTraceManager = new Mock<ITraceManager>();
+                var mockReplayEngine = new Mock<IReplayEngine>();
+                var mockCdcComparator = new Mock<ICdcComparator>();
                 var mockTraceDataProvider = new Mock<ITraceDataProvider>();
+
+                // Setup mock returns for successful operations
+                var testSession = new TraceSession
+                {
+                    SessionId = Guid.NewGuid(),
+                    SessionName = "TestTraceSession",
+                    DatabaseName = "TestDB",
+                    Status = TraceStatus.Running,
+                    StartTime = DateTime.UtcNow,
+                    Configuration = new TraceConfiguration()
+                };
+
+                mockSnapshotManager.Setup(x => x.CreateSnapshotAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                    .ReturnsAsync(new SnapshotResult { Success = true, Message = "Snapshot created successfully" });
+
+                mockSnapshotManager.Setup(x => x.RestoreSnapshotAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                    .ReturnsAsync(new SnapshotResult { Success = true, Message = "Snapshot restored successfully" });
+
+                mockTraceManager.Setup(x => x.StartTraceAsync(It.IsAny<TraceConfiguration>(), It.IsAny<string>()))
+                    .ReturnsAsync(testSession);
+
+                mockTraceManager.Setup(x => x.StopTraceAsync(It.IsAny<Guid>()))
+                    .ReturnsAsync(testSession);
+
+                mockTraceManager.Setup(x => x.ExportTraceDataAsync(It.IsAny<Guid>(), It.IsAny<string>()))
+                    .ReturnsAsync("/path/to/export");
+
+                mockTraceDataProvider.Setup(x => x.CreateTraceSessionAsync(It.IsAny<TraceSession>()))
+                    .Returns(Task.CompletedTask);
+
+                mockTraceDataProvider.Setup(x => x.GetTraceSessionAsync(It.IsAny<Guid>()))
+                    .ReturnsAsync(testSession);
+
+                mockTraceDataProvider.Setup(x => x.UpdateTraceSessionAsync(It.IsAny<TraceSession>()))
+                    .Returns(Task.CompletedTask);
+
+                mockReplayEngine.Setup(x => x.ReplayTraceAsync(It.IsAny<Guid>(), It.IsAny<ReplayOptions>()))
+                    .ReturnsAsync(new ReplayResult
+                    {
+                        SessionId = testSession.SessionId,
+                        StartTime = DateTime.UtcNow,
+                        EndTime = DateTime.UtcNow.AddMinutes(1),
+                        TotalStatements = 10,
+                        SuccessfulStatements = 10,
+                        FailedStatements = 0
+                    });
+
+                mockReplayEngine.Setup(x => x.ExecuteStatementsFromFileAsync(It.IsAny<string>(), It.IsAny<ReplayOptions>()))
+                    .ReturnsAsync(new ReplayResult
+                    {
+                        SessionId = testSession.SessionId,
+                        StartTime = DateTime.UtcNow,
+                        EndTime = DateTime.UtcNow.AddMinutes(1),
+                        TotalStatements = 5,
+                        SuccessfulStatements = 5,
+                        FailedStatements = 0
+                    });
+
+                mockCdcComparator.Setup(x => x.CompareCdcDataAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<ComparisonConfiguration>()))
+                    .ReturnsAsync(new ComparisonResult
+                    {
+                        ComparisonId = Guid.NewGuid(),
+                        SessionId = testSession.SessionId,
+                        ComparisonTime = DateTime.UtcNow,
+                        OverallMatch = true,
+                        TotalDifferences = 0
+                    });
 
                 services.AddSingleton(mockSnapshotManager.Object);
                 services.AddSingleton(mockTraceManager.Object);

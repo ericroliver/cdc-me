@@ -11,7 +11,7 @@ using System.Text.RegularExpressions;
 
 namespace Softbase.Cdc.Trace
 {
-    public class CdcComparator
+    public class CdcComparator : ICdcComparator
     {
         private readonly SimpleDac _testDac;
         private readonly ITraceDataProvider _traceProvider;
@@ -26,7 +26,7 @@ namespace Softbase.Cdc.Trace
             _config = config ?? throw new ArgumentNullException(nameof(config));
         }
 
-        public async Task<ComparisonResult> CompareCdcDataAsync(string tableName, string connectionString, string traceConnectionString, ComparisonConfiguration config)
+        public Task<ComparisonResult> CompareCdcDataAsync(string tableName, string connectionString, string traceConnectionString, ComparisonConfiguration config)
         {
             _logger.LogInformation("Comparing CDC data for table {TableName}", tableName);
 
@@ -59,7 +59,7 @@ namespace Softbase.Cdc.Trace
                 result.TotalDifferences = tableComparison.DifferenceCount;
                 result.OverallMatch = tableComparison.IsMatch;
 
-                return result;
+                return Task.FromResult(result);
             }
             catch (Exception ex)
             {
@@ -346,7 +346,7 @@ namespace Softbase.Cdc.Trace
             return comparison;
         }
 
-        public async Task<IDictionary<string, object>> NormalizeCdcDataAsync(IDictionary<string, object> data)
+        public Task<IDictionary<string, object>> NormalizeCdcDataAsync(IDictionary<string, object> data)
         {
             var normalized = new Dictionary<string, object>();
 
@@ -363,7 +363,7 @@ namespace Softbase.Cdc.Trace
                 normalized[columnName] = NormalizeValue(columnName, value);
             }
 
-            return normalized;
+            return Task.FromResult<IDictionary<string, object>>(normalized);
         }
 
         private bool ShouldExcludeColumn(string columnName)
@@ -586,7 +586,7 @@ namespace Softbase.Cdc.Trace
             return BitConverter.ToString(hashBytes).Replace("-", "").Substring(0, 16); // Take first 16 characters
         }
 
-        public async Task<DifferenceReport> GenerateDifferenceReportAsync(ComparisonResult result)
+        public Task<DifferenceReport> GenerateDifferenceReportAsync(ComparisonResult result)
         {
             var report = new DifferenceReport
             {
@@ -627,7 +627,7 @@ namespace Softbase.Cdc.Trace
             }
 
             report.Summary = summaryBuilder.ToString();
-            return report;
+            return Task.FromResult(report);
         }
     }
 }

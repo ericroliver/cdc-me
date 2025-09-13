@@ -60,7 +60,7 @@ builder.Services.AddScoped<ITraceDataProvider, PostgreSqlTraceProvider>(serviceP
 });
 
 // Register trace services with proper database role separation
-builder.Services.AddScoped<SnapshotManager>(serviceProvider =>
+builder.Services.AddScoped<ISnapshotManager, SnapshotManager>(serviceProvider =>
 {
     var factory = serviceProvider.GetRequiredService<IDatabaseConnectionFactory>();
     var logger = serviceProvider.GetRequiredService<ILogger<SnapshotManager>>();
@@ -68,7 +68,7 @@ builder.Services.AddScoped<SnapshotManager>(serviceProvider =>
     return new SnapshotManager(testDbDac, logger);
 });
 
-builder.Services.AddScoped<TraceManager>(serviceProvider =>
+builder.Services.AddScoped<ITraceManager, TraceManager>(serviceProvider =>
 {
     var factory = serviceProvider.GetRequiredService<IDatabaseConnectionFactory>();
     var traceProvider = serviceProvider.GetRequiredService<ITraceDataProvider>();
@@ -77,7 +77,7 @@ builder.Services.AddScoped<TraceManager>(serviceProvider =>
     return new TraceManager(testDbDac, traceProvider, logger);
 });
 
-builder.Services.AddScoped<ReplayEngine>(serviceProvider =>
+builder.Services.AddScoped<IReplayEngine, ReplayEngine>(serviceProvider =>
 {
     var factory = serviceProvider.GetRequiredService<IDatabaseConnectionFactory>();
     var traceProvider = serviceProvider.GetRequiredService<ITraceDataProvider>();
@@ -86,7 +86,7 @@ builder.Services.AddScoped<ReplayEngine>(serviceProvider =>
     return new ReplayEngine(testDbDac, traceProvider, logger);
 });
 
-builder.Services.AddScoped<CdcComparator>(serviceProvider =>
+builder.Services.AddScoped<ICdcComparator, CdcComparator>(serviceProvider =>
 {
     var factory = serviceProvider.GetRequiredService<IDatabaseConnectionFactory>();
     var traceProvider = serviceProvider.GetRequiredService<ITraceDataProvider>();

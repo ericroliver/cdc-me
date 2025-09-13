@@ -9,18 +9,18 @@ namespace cdc_api.Controllers;
 public class TestWorkflowController : ControllerBase
 {
     private readonly ILogger<TestWorkflowController> _logger;
-    private readonly SnapshotManager _snapshotManager;
-    private readonly TraceManager _traceManager;
-    private readonly ReplayEngine _replayEngine;
-    private readonly CdcComparator _cdcComparator;
+    private readonly ISnapshotManager _snapshotManager;
+    private readonly ITraceManager _traceManager;
+    private readonly IReplayEngine _replayEngine;
+    private readonly ICdcComparator _cdcComparator;
     private readonly ITraceDataProvider _traceDataProvider;
 
     public TestWorkflowController(
         ILogger<TestWorkflowController> logger,
-        SnapshotManager snapshotManager,
-        TraceManager traceManager,
-        ReplayEngine replayEngine,
-        CdcComparator cdcComparator,
+        ISnapshotManager snapshotManager,
+        ITraceManager traceManager,
+        IReplayEngine replayEngine,
+        ICdcComparator cdcComparator,
         ITraceDataProvider traceDataProvider)
     {
         _logger = logger;
@@ -39,6 +39,27 @@ public class TestWorkflowController : ControllerBase
     [HttpPost("execute")]
     public async Task<ActionResult<WorkflowExecutionResult>> ExecuteWorkflow([FromBody] WorkflowExecutionRequest request)
     {
+        // Validate required fields
+        if (string.IsNullOrWhiteSpace(request.WorkflowName) ||
+            string.IsNullOrWhiteSpace(request.DatabaseName) ||
+            string.IsNullOrWhiteSpace(request.ConnectionString) ||
+            string.IsNullOrWhiteSpace(request.TraceConnectionString) ||
+            string.IsNullOrWhiteSpace(request.BaselineSnapshotName) ||
+            string.IsNullOrWhiteSpace(request.TestSnapshotName) ||
+            string.IsNullOrWhiteSpace(request.TraceSessionName))
+        {
+            return BadRequest(new WorkflowExecutionResult
+            {
+                WorkflowId = Guid.NewGuid(),
+                WorkflowName = request.WorkflowName ?? string.Empty,
+                StartTime = DateTime.UtcNow,
+                EndTime = DateTime.UtcNow,
+                Success = false,
+                ErrorMessage = "Required fields are missing: WorkflowName, DatabaseName, ConnectionString, TraceConnectionString, BaselineSnapshotName, TestSnapshotName, and TraceSessionName are all required.",
+                Steps = new List<WorkflowStepResult>()
+            });
+        }
+
         var workflowId = Guid.NewGuid();
         var result = new WorkflowExecutionResult
         {
@@ -138,6 +159,9 @@ public class TestWorkflowController : ControllerBase
             // Step 5: Stop trace capture
             result.Steps.Add(await ExecuteStep("Stop Trace Capture", async () =>
             {
+                if (!result.TraceSessionId.HasValue)
+                    throw new InvalidOperationException("TraceSessionId is null");
+
                 var stopResult = await _traceManager.StopTraceAsync(result.TraceSessionId.Value);
                 // TraceManager.StopTraceAsync returns TraceSession, so we assume success if no exception
                 _logger.LogInformation("Trace stopped successfully");
@@ -160,6 +184,9 @@ public class TestWorkflowController : ControllerBase
             // Step 6: Export trace data
             result.Steps.Add(await ExecuteStep("Export Trace Data", async () =>
             {
+                if (!result.TraceSessionId.HasValue)
+                    throw new InvalidOperationException("TraceSessionId is null");
+
                 var exportResult = await _traceManager.ExportTraceDataAsync(
                     result.TraceSessionId.Value,
                     request.TraceConnectionString);

@@ -57,7 +57,7 @@ namespace cdc_api.Tests.Integration
             using var cdcMeConnection = factory.CreateConnection(DatabaseRole.CdcMeDatabase);
 
             // Assert
-            Assert.IsType<System.Data.SqlClient.SqlConnection>(testDbConnection);
+            Assert.IsType<Microsoft.Data.SqlClient.SqlConnection>(testDbConnection);
             Assert.IsType<Npgsql.NpgsqlConnection>(cdcMeConnection);
         }
 
