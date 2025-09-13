@@ -1,10 +1,8 @@
 ﻿using System;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
-using Softbase;
 using System.Text;
 using System.Linq;
-using System.IO;
 
 namespace Softbase.Cdc
 {

@@ -1,9 +1,7 @@
-using System;
 using System.CommandLine;
-using System.CommandLine.Invocation;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Softbase;
+using Softbase.Cdc.Data;
 using Softbase.Cdc.Trace;
 
 namespace CdcProto.Commands
@@ -76,7 +74,7 @@ namespace CdcProto.Commands
 
             try
             {
-                var dac = new SimpleDac(connectionString, logger);
+                var dac = new SimpleDac(connectionString, DatabaseProvider.SqlServer, logger);
                 var snapshotManager = new SnapshotManager(dac, logger);
 
                 Console.WriteLine($"Creating snapshot '{name}' for database '{database}'...");
@@ -97,7 +95,7 @@ namespace CdcProto.Commands
 
             try
             {
-                var dac = new SimpleDac(connectionString, logger);
+                var dac = new SimpleDac(connectionString, DatabaseProvider.SqlServer, logger);
                 var snapshotManager = new SnapshotManager(dac, logger);
 
                 Console.WriteLine($"Restoring database '{database}' from snapshot '{snapshot}'...");
@@ -118,7 +116,7 @@ namespace CdcProto.Commands
 
             try
             {
-                var dac = new SimpleDac(connectionString, logger);
+                var dac = new SimpleDac(connectionString, DatabaseProvider.SqlServer, logger);
                 var snapshotManager = new SnapshotManager(dac, logger);
 
                 Console.WriteLine("📋 Database Snapshots:");
@@ -154,7 +152,7 @@ namespace CdcProto.Commands
 
             try
             {
-                var dac = new SimpleDac(connectionString, logger);
+                var dac = new SimpleDac(connectionString, DatabaseProvider.SqlServer, logger);
                 var snapshotManager = new SnapshotManager(dac, logger);
 
                 Console.WriteLine($"Dropping snapshot '{name}'...");
@@ -175,7 +173,7 @@ namespace CdcProto.Commands
 
             try
             {
-                var dac = new SimpleDac(connectionString, logger);
+                var dac = new SimpleDac(connectionString, DatabaseProvider.SqlServer, logger);
                 var snapshotManager = new SnapshotManager(dac, logger);
 
                 var info = await snapshotManager.GetSnapshotInfoAsync(name);

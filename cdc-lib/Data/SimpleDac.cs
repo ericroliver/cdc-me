@@ -4,6 +4,8 @@ using System.Data;
 using System.Data.SqlClient;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Npgsql;
+using Softbase.Cdc.Data;
 
 namespace Softbase
 {
@@ -12,11 +14,13 @@ namespace Softbase
         const int defaultTimeout = 120;
         private IDbConnection _connection;
         private readonly string _connectionString;
+        private readonly DatabaseProvider _provider;
         private readonly ILogger _logger;
 
-        public SimpleDac(string connectionString, ILogger logger)
+        public SimpleDac(string connectionString, DatabaseProvider provider, ILogger logger)
         {
             _connectionString = connectionString;
+            _provider = provider;
             _logger = logger;
         }
 
@@ -24,7 +28,12 @@ namespace Softbase
         {
             if (_connectionString != null)
             {
-                _connection = new SqlConnection(_connectionString);
+                _connection = _provider switch
+                {
+                    DatabaseProvider.SqlServer => new SqlConnection(_connectionString),
+                    DatabaseProvider.PostgreSQL => new NpgsqlConnection(_connectionString),
+                    _ => throw new NotSupportedException($"Provider {_provider} not supported")
+                };
                 _connection.Open();
                 return _connection;
             }
@@ -35,7 +44,7 @@ namespace Softbase
                 return _connection;
             }
 
-            throw new InvalidOperationException("No dbFactory or connection specified!");
+            throw new InvalidOperationException("No connection string or connection specified!");
         }
 
         public object ExecuteScalar(string command)
@@ -224,14 +233,12 @@ namespace Softbase
                     }
                 }
 
-                if (dbCmd is SqlCommand sqlCmd)
+                return _provider switch
                 {
-                    return await sqlCmd.ExecuteScalarAsync();
-                }
-                else
-                {
-                    return dbCmd.ExecuteScalar();
-                }
+                    DatabaseProvider.SqlServer when dbCmd is SqlCommand sqlCmd => await sqlCmd.ExecuteScalarAsync(),
+                    DatabaseProvider.PostgreSQL when dbCmd is NpgsqlCommand npgsqlCmd => await npgsqlCmd.ExecuteScalarAsync(),
+                    _ => dbCmd.ExecuteScalar()
+                };
             }
             catch (Exception ex)
             {
@@ -269,19 +276,26 @@ namespace Softbase
                     }
                 }
 
-                if (dbCmd is SqlCommand sqlCmd)
+                switch (_provider)
                 {
-                    using (var reader = await sqlCmd.ExecuteReaderAsync())
-                    {
-                        result = readerDelegate(reader);
-                    }
-                }
-                else
-                {
-                    using (var reader = dbCmd.ExecuteReader())
-                    {
-                        result = readerDelegate(reader);
-                    }
+                    case DatabaseProvider.SqlServer when dbCmd is SqlCommand sqlCmd:
+                        using (var reader = await sqlCmd.ExecuteReaderAsync())
+                        {
+                            result = readerDelegate(reader);
+                        }
+                        break;
+                    case DatabaseProvider.PostgreSQL when dbCmd is NpgsqlCommand npgsqlCmd:
+                        using (var reader = await npgsqlCmd.ExecuteReaderAsync())
+                        {
+                            result = readerDelegate(reader);
+                        }
+                        break;
+                    default:
+                        using (var reader = dbCmd.ExecuteReader())
+                        {
+                            result = readerDelegate(reader);
+                        }
+                        break;
                 }
             }
             catch (Exception ex)
@@ -330,14 +344,12 @@ namespace Softbase
                     }
                 }
 
-                if (dbCmd is SqlCommand sqlCmd)
+                return _provider switch
                 {
-                    return await sqlCmd.ExecuteNonQueryAsync();
-                }
-                else
-                {
-                    return dbCmd.ExecuteNonQuery();
-                }
+                    DatabaseProvider.SqlServer when dbCmd is SqlCommand sqlCmd => await sqlCmd.ExecuteNonQueryAsync(),
+                    DatabaseProvider.PostgreSQL when dbCmd is NpgsqlCommand npgsqlCmd => await npgsqlCmd.ExecuteNonQueryAsync(),
+                    _ => dbCmd.ExecuteNonQuery()
+                };
             }
             catch (Exception ex)
             {

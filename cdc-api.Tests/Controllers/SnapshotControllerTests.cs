@@ -6,7 +6,6 @@ using Xunit;
 using FluentAssertions;
 using Moq;
 using Softbase.Cdc.Trace;
-using Softbase.Cdc.Models;
 using cdc_api.Controllers;
 
 namespace cdc_api.Tests.Controllers;

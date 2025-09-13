@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Text;
@@ -25,7 +24,7 @@ namespace Softbase
 
     //public static class RdbmsUtilities
     //{
-       
+
     //    private static bool IgnoreValue(object value)
     //    {
     //        return value is IEnumerable && !(value is string);
@@ -222,7 +221,7 @@ namespace Softbase
         }
     }
 
-        public static class DataTableUtilities
+    public static class DataTableUtilities
     {
         public static List<string> DistinctField(DataTable dt, string fieldName)
         {

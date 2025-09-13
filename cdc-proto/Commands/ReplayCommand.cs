@@ -1,13 +1,9 @@
-using System;
 using System.CommandLine;
-using System.CommandLine.Invocation;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Softbase;
+using Softbase.Cdc.Data;
 using Softbase.Cdc.Trace;
 using Softbase.Cdc.Models;
-using Newtonsoft.Json;
-using System.IO;
 
 namespace CdcProto.Commands
 {
@@ -105,7 +101,7 @@ namespace CdcProto.Commands
                 var testConnectionString = GetTestConnectionString(testConnection);
                 var traceConnectionString = GetTraceConnectionString(traceConnection, provider);
 
-                var testDac = new SimpleDac(testConnectionString, logger);
+                var testDac = new SimpleDac(testConnectionString, DatabaseProvider.SqlServer, logger);
                 var traceProvider = CreateTraceProvider(provider, traceConnectionString, logger);
                 var replayEngine = new ReplayEngine(testDac, traceProvider, logger);
 
@@ -171,7 +167,7 @@ namespace CdcProto.Commands
                 var testConnectionString = GetTestConnectionString(testConnection);
                 var traceConnectionString = GetTraceConnectionString(traceConnection, provider);
 
-                var testDac = new SimpleDac(testConnectionString, logger);
+                var testDac = new SimpleDac(testConnectionString, DatabaseProvider.SqlServer, logger);
                 var traceProvider = CreateTraceProvider(provider, traceConnectionString, logger);
                 var comparator = new CdcComparator(testDac, traceProvider, logger, new ComparisonConfiguration());
 
@@ -256,7 +252,7 @@ namespace CdcProto.Commands
                 var testConnectionString = GetTestConnectionString(testConnection);
                 var traceConnectionString = GetTraceConnectionString(traceConnection, provider);
 
-                var testDac = new SimpleDac(testConnectionString, logger);
+                var testDac = new SimpleDac(testConnectionString, DatabaseProvider.SqlServer, logger);
                 var traceProvider = CreateTraceProvider(provider, traceConnectionString, logger);
                 var snapshotManager = new SnapshotManager(testDac, logger);
                 var traceManager = new TraceManager(testDac, traceProvider, logger);
