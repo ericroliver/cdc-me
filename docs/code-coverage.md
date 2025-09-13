@@ -114,6 +114,29 @@ To improve code coverage:
 3. **Edge Cases**: Test error conditions and edge cases
 4. **Mock Dependencies**: Use mocking to isolate units under test
 
+## Coverage Regression Prevention
+
+The baseline coverage tracking helps prevent regressions:
+
+1. **Baseline Establishment**: First run establishes the baseline
+2. **Automatic Comparison**: Subsequent runs compare against baseline
+3. **Visual Feedback**: Clear indicators show coverage changes
+4. **Version Control**: Baseline files are committed to track progress
+
+### Example Output
+
+```bash
+🔍 Comparing with baseline coverage...
+📈 Coverage improved by 2.3% (24.5% → 26.8%)
+```
+
+or
+
+```bash
+🔍 Comparing with baseline coverage...
+⚠️  Coverage decreased by 1.2% (24.5% → 23.3%)
+```
+
 ## CI/CD Integration
 
 The coverage script can be integrated into CI/CD pipelines:

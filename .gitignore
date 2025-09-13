@@ -63,3 +63,6 @@ TestResults/
 *.trx
 *.coverage
 *.coveragexml
+
+# Keep baseline coverage for regression tracking
+!coverage-baseline/
