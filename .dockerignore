@@ -1,0 +1,51 @@
+# Build artifacts
+**/bin/
+**/obj/
+**/out/
+
+# IDE files
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+docs/
+*.md
+README.md
+
+# Test results
+TestResults/
+coverage/
+**/*.trx
+
+# Logs
+logs/
+*.log
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Node modules (if any)
+node_modules/
+
+# Temporary files
+tmp/
+temp/
+
+# Sample workflows (not needed in container)
+docs/sample-git-workflows/

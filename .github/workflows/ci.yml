@@ -1,0 +1,361 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop, eo/setup-test-bed]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: "Skip tests"
+        required: false
+        default: false
+        type: boolean
+
+env:
+  DOTNET_VERSION: "6.0.x"
+  SOLUTION_FILE: "cdc-me.sln"
+  API_PROJECT_PATH: "cdc-api/cdc-api.csproj"
+  CLI_PROJECT_PATH: "cdc-proto/cdc-utility.csproj"
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  # Build Information Job
+  build-info:
+    name: Build Information
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      numeric-version: ${{ steps.version.outputs.numeric-version }}
+      build-number: ${{ steps.version.outputs.build-number }}
+      is-release: ${{ steps.version.outputs.is-release }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calculate version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+            NUMERIC_VERSION=$VERSION
+            IS_RELEASE=true
+          else
+            VERSION="1.0.0-dev.${GITHUB_RUN_NUMBER}"
+            NUMERIC_VERSION="1.0.0.${GITHUB_RUN_NUMBER}"
+            IS_RELEASE=false
+          fi
+          BUILD_NUMBER=${GITHUB_RUN_NUMBER}
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "numeric-version=$NUMERIC_VERSION" >> $GITHUB_OUTPUT
+          echo "build-number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "is-release=$IS_RELEASE" >> $GITHUB_OUTPUT
+
+          echo "Version: $VERSION"
+          echo "Numeric Version: $NUMERIC_VERSION"
+          echo "Build Number: $BUILD_NUMBER"
+          echo "Is Release: $IS_RELEASE"
+
+  # Linting and Static Analysis Job
+  lint-and-analyze:
+    name: Lint and Static Analysis
+    runs-on: ubuntu-latest
+    needs: build-info
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Shallow clones should be disabled for better analysis
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.SOLUTION_FILE }}
+
+      - name: Restore dotnet tools
+        run: dotnet tool restore
+
+      - name: Build solution
+        run: dotnet build ${{ env.SOLUTION_FILE }} --configuration Release --no-restore -p:Version=${{ needs.build-info.outputs.version }}
+
+      - name: Run .NET Format (Code Formatting Check)
+        run: dotnet format ${{ env.SOLUTION_FILE }} --verify-no-changes --verbosity diagnostic
+
+      - name: Run Static Analysis with .NET Analyzers
+        run: dotnet build ${{ env.SOLUTION_FILE }} --configuration Release --verbosity normal -p:Version=${{ needs.build-info.outputs.version }}
+
+      - name: Run lint check script
+        run: |
+          if [ -f "scripts/lint-check.sh" ]; then
+            chmod +x scripts/lint-check.sh
+            ./scripts/lint-check.sh
+          fi
+
+  # Test Job
+  test:
+    name: Run Tests
+    runs-on: ${{ matrix.os }}
+    needs: [build-info, lint-and-analyze]
+    if: ${{ !inputs.skip_tests }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+      fail-fast: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.SOLUTION_FILE }}
+
+      - name: Build solution
+        run: dotnet build ${{ env.SOLUTION_FILE }} --configuration Release --no-restore -p:Version=${{ needs.build-info.outputs.version }}
+
+      - name: Run tests with coverage
+        run: dotnet test ${{ env.SOLUTION_FILE }} --configuration Release --no-build --collect:"XPlat Code Coverage" --results-directory ./coverage --logger trx --logger "console;verbosity=detailed"
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.os }}
+          path: |
+            **/*.trx
+            ./coverage/**/*
+          retention-days: 30
+
+      - name: Upload coverage to Codecov (Ubuntu only)
+        if: matrix.os == 'ubuntu-latest'
+        uses: codecov/codecov-action@v4
+        with:
+          directory: ./coverage
+          fail_ci_if_error: false
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  # Cross-platform CLI Build Job
+  build-cli-cross-platform:
+    name: Build Cross-Platform CLI Executables
+    runs-on: ubuntu-latest
+    needs: [build-info, lint-and-analyze, test]
+    if: always() && (needs.lint-and-analyze.result == 'success') && (needs.test.result == 'success' || inputs.skip_tests)
+
+    strategy:
+      matrix:
+        runtime:
+          [win-x64, win-arm64, linux-x64, linux-arm64, osx-x64, osx-arm64]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.CLI_PROJECT_PATH }}
+
+      - name: Publish CLI for ${{ matrix.runtime }}
+        run: |
+          dotnet publish ${{ env.CLI_PROJECT_PATH }} \
+            --configuration Release \
+            --runtime ${{ matrix.runtime }} \
+            --self-contained true \
+            --output ./publish/${{ matrix.runtime }} \
+            -p:PublishSingleFile=true \
+            -p:PublishTrimmed=true \
+            -p:TrimMode=partial \
+            -p:Version=${{ needs.build-info.outputs.version }} \
+            -p:AssemblyVersion=${{ needs.build-info.outputs.numeric-version }} \
+            -p:FileVersion=${{ needs.build-info.outputs.numeric-version }} \
+            -p:InformationalVersion=${{ needs.build-info.outputs.version }}+${{ github.sha }}
+
+      - name: Create archive for ${{ matrix.runtime }}
+        run: |
+          cd ./publish/${{ matrix.runtime }}
+          if [[ "${{ matrix.runtime }}" == win-* ]]; then
+            zip -r ../../cdc-cli-${{ matrix.runtime }}.zip .
+          else
+            tar -czf ../../cdc-cli-${{ matrix.runtime }}.tar.gz .
+          fi
+
+      - name: Calculate checksums
+        run: |
+          if [[ "${{ matrix.runtime }}" == win-* ]]; then
+            sha256sum cdc-cli-${{ matrix.runtime }}.zip > cdc-cli-${{ matrix.runtime }}.zip.sha256
+          else
+            sha256sum cdc-cli-${{ matrix.runtime }}.tar.gz > cdc-cli-${{ matrix.runtime }}.tar.gz.sha256
+          fi
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdc-cli-${{ matrix.runtime }}
+          path: |
+            cdc-cli-${{ matrix.runtime }}.zip
+            cdc-cli-${{ matrix.runtime }}.tar.gz
+            cdc-cli-${{ matrix.runtime }}.*.sha256
+          retention-days: 30
+
+  # Security Scan Job
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: [build-info, lint-and-analyze]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.SOLUTION_FILE }}
+
+      - name: Restore dotnet tools
+        run: dotnet tool restore
+
+      - name: Run vulnerability scan
+        run: dotnet list package --vulnerable --include-transitive
+
+      - name: Check for outdated packages
+        continue-on-error: true
+        run: |
+          if command -v dotnet-outdated &> /dev/null; then
+            dotnet outdated ${{ env.SOLUTION_FILE }}
+          else
+            echo "dotnet-outdated tool not available, skipping outdated package check"
+          fi
+
+      - name: Fail on vulnerabilities
+        run: |
+          if dotnet list package --vulnerable --include-transitive | grep -q "has the following vulnerable packages"; then
+            echo "::error::Vulnerable packages found!"
+            exit 1
+          fi
+
+  # Performance Benchmarks (optional)
+  benchmarks:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    needs: [build-info, lint-and-analyze]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.SOLUTION_FILE }}
+
+      - name: Build solution
+        run: dotnet build ${{ env.SOLUTION_FILE }} --configuration Release --no-restore -p:Version=${{ needs.build-info.outputs.version }}
+
+      - name: Run basic performance test
+        run: |
+          echo "Running basic performance validation..."
+          timeout 30s dotnet run --project ${{ env.CLI_PROJECT_PATH }} --configuration Release -- --help || true
+          echo "Performance test completed"
+
+  # Summary Job
+  build-summary:
+    name: Build Summary
+    runs-on: ubuntu-latest
+    needs:
+      [
+        build-info,
+        lint-and-analyze,
+        test,
+        build-cli-cross-platform,
+        security-scan,
+      ]
+    if: always()
+
+    steps:
+      - name: Build Summary
+        run: |
+          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ needs.build-info.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build Number**: ${{ needs.build-info.outputs.build-number }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Is Release**: ${{ needs.build-info.outputs.is-release }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Job Results" >> $GITHUB_STEP_SUMMARY
+          echo "- **Lint & Analyze**: ${{ needs.lint-and-analyze.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tests**: ${{ needs.test.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **CLI Cross-platform Build**: ${{ needs.build-cli-cross-platform.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Security Scan**: ${{ needs.security-scan.result }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check overall success
+        if: needs.lint-and-analyze.result != 'success' || (needs.test.result != 'success' && !inputs.skip_tests) || needs.build-cli-cross-platform.result != 'success' || needs.security-scan.result != 'success'
+        run: |
+          echo "::error::One or more critical jobs failed"
+          exit 1
