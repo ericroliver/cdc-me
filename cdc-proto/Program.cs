@@ -143,8 +143,6 @@ internal class OldProgram
 {
     private static void Main(string[] args)
     {
-        // const string configPath = "/usr/.cdc"; // Unused variable - commented out
-
         //var init = args.Any(a => a.Equals("init"));
         var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Warning));
         var logger = loggerFactory.CreateLogger("CDC Utililty");
