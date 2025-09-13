@@ -25,7 +25,7 @@ public class CdcController : ControllerBase
         //  docker container rm 'container_name'
         // stand it back up
         // docker run --name mssqlDb_container-1  -i -d ghcr.io/yaitde-x/sb-sql-tpa:latest 
-        var command = "docker container rm 'container_name'";
+        // var command = "docker container rm 'container_name'"; // Unused variable - commented out
         return new CdcOperationResult();
     }
 }

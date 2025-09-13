@@ -1,0 +1,98 @@
+Summary
+  Generated on: 9/13/2025 - 11:59:46 AM
+  Coverage date: 9/13/2025 - 11:59:45 AM
+  Parser: Cobertura
+  Assemblies: 2
+  Classes: 74
+  Files: 22
+  Line coverage: 24.5%
+  Covered lines: 822
+  Uncovered lines: 2527
+  Coverable lines: 3349
+  Total lines: 6548
+  Branch coverage: 12.2% (124 of 1016)
+  Covered branches: 124
+  Total branches: 1016
+  Method coverage: 42.4% (232 of 547)
+  Full method coverage: 36.3% (199 of 547)
+  Covered methods: 232
+  Fully covered methods: 199
+  Total methods: 547
+
+cdc-api                                                           76.4%
+  cdc_api.Controllers.CdcController                                  0%
+  cdc_api.Controllers.ComparisonSummary                            100%
+  cdc_api.Controllers.CreateSnapshotRequest                        100%
+  cdc_api.Controllers.DeleteSnapshotRequest                        100%
+  cdc_api.Controllers.ExportTraceRequest                           100%
+  cdc_api.Controllers.ReplayStatistics                             100%
+  cdc_api.Controllers.RestoreSnapshotRequest                       100%
+  cdc_api.Controllers.SnapshotApiResult                            100%
+  cdc_api.Controllers.SnapshotController                            67%
+  cdc_api.Controllers.Spawn                                          0%
+  cdc_api.Controllers.StartTraceRequest                            100%
+  cdc_api.Controllers.StopTraceRequest                             100%
+  cdc_api.Controllers.TestReport                                   100%
+  cdc_api.Controllers.TestWorkflowController                      91.6%
+  cdc_api.Controllers.TraceApiResult                               100%
+  cdc_api.Controllers.TraceController                             66.8%
+  cdc_api.Controllers.TraceSessionStatus                           100%
+  cdc_api.Controllers.TraceSessionSummary                          100%
+  cdc_api.Controllers.WorkflowExecutionRequest                     100%
+  cdc_api.Controllers.WorkflowExecutionResult                      100%
+  cdc_api.Controllers.WorkflowExecutionSummary                       0%
+  cdc_api.Controllers.WorkflowStatus                               100%
+  cdc_api.Controllers.WorkflowStepResult                           100%
+  cdc_api.Data.ApiDatabaseConnectionFactory                       93.1%
+  cdc_api.Data.EmptyDisposable                                       0%
+  cdc_api.Data.LoggerAdapter<T>                                   66.6%
+  Program                                                         59.5%
+
+cdc-lib                                                            7.4%
+  Softbase.Cdc.CdcDataUtilities                                      0%
+  Softbase.Cdc.Configuration.DatabaseConfigurationValidator       50.7%
+  Softbase.Cdc.Configuration.ValidationResult                      100%
+  Softbase.Cdc.Data.ConfigurationBasedDatabaseConnectionFactory      0%
+  Softbase.Cdc.Data.DatabaseConnectionFactory                     71.7%
+  Softbase.Cdc.Models.CdcCapture                                     0%
+  Softbase.Cdc.Models.ComparisonConfiguration                      100%
+  Softbase.Cdc.Models.ComparisonRequest                              0%
+  Softbase.Cdc.Models.ComparisonResult                             100%
+  Softbase.Cdc.Models.DatabaseFileInfo                               0%
+  Softbase.Cdc.Models.DifferenceReport                               0%
+  Softbase.Cdc.Models.FieldDifference                                0%
+  Softbase.Cdc.Models.ReplayError                                    0%
+  Softbase.Cdc.Models.ReplayOptions                                100%
+  Softbase.Cdc.Models.ReplayResult                                 100%
+  Softbase.Cdc.Models.ReplayStatement                                0%
+  Softbase.Cdc.Models.RowDifference                                  0%
+  Softbase.Cdc.Models.SnapshotInfo                                 100%
+  Softbase.Cdc.Models.SnapshotResult                                50%
+  Softbase.Cdc.Models.StatementResult                                0%
+  Softbase.Cdc.Models.TableComparison                                0%
+  Softbase.Cdc.Models.TableDifferenceReport                          0%
+  Softbase.Cdc.Models.TraceConfiguration                           100%
+  Softbase.Cdc.Models.TraceEvent                                     0%
+  Softbase.Cdc.Models.TraceSession                                83.3%
+  Softbase.Cdc.Models.TraceStatus                                  100%
+  Softbase.Cdc.Models.TraceStorageConfiguration                    100%
+  Softbase.Cdc.Models.WorkflowConfiguration                          0%
+  Softbase.Cdc.Models.WorkflowResult                                 0%
+  Softbase.Cdc.Trace.CdcComparator                                   0%
+  Softbase.Cdc.Trace.PostgreSqlTraceProvider                       1.6%
+  Softbase.Cdc.Trace.ReplayEngine                                    0%
+  Softbase.Cdc.Trace.SnapshotManager                                 0%
+  Softbase.Cdc.Trace.SqlServerTraceProvider                          0%
+  Softbase.Cdc.Trace.TraceManager                                    0%
+  Softbase.DataReaderUtilities                                       0%
+  Softbase.DataTableUtilities                                        0%
+  Softbase.Diff                                                      0%
+  Softbase.JsonUtilities                                             0%
+  Softbase.ProfileDiffer                                             0%
+  Softbase.ReaderFieldLoader                                         0%
+  Softbase.SimpleDac                                               2.8%
+  Softbase.SqlIndex                                                  0%
+  Softbase.SqlTable                                                  0%
+  Softbase.StringUtilities                                           0%
+  Softbase.TypeConversionUtilities                                   0%
+  Softbase.ValueDiff                                                 0%

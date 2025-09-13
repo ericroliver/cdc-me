@@ -10,7 +10,7 @@ using System.Text.RegularExpressions;
 
 namespace Softbase.Cdc.Trace
 {
-    public class ReplayEngine
+    public class ReplayEngine : IReplayEngine
     {
         private readonly SimpleDac _testDac;
         private readonly ITraceDataProvider _traceProvider;

@@ -25,7 +25,7 @@ public static class Spawn
             if (!shellProcess.Start())
             {
                 debugWriter.LogDebug($"shell exited with code {shellProcess.ExitCode}:{shellProcess.StandardError.ReadToEnd()}");
-                return default(string);
+                return string.Empty;
             }
 
             shellProcess.WaitForExit();

@@ -57,3 +57,12 @@ src/assets/metronic/themes/default/css/skins/**/*.min.css
 .env
 .env.local
 .env.*.local
+
+# Test Results and Coverage
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# Keep baseline coverage for regression tracking
+!coverage-baseline/

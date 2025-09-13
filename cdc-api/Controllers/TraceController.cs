@@ -9,12 +9,12 @@ namespace cdc_api.Controllers;
 public class TraceController : ControllerBase
 {
     private readonly ILogger<TraceController> _logger;
-    private readonly TraceManager _traceManager;
+    private readonly ITraceManager _traceManager;
     private readonly ITraceDataProvider _traceDataProvider;
 
     public TraceController(
         ILogger<TraceController> logger,
-        TraceManager traceManager,
+        ITraceManager traceManager,
         ITraceDataProvider traceDataProvider)
     {
         _logger = logger;
@@ -30,6 +30,19 @@ public class TraceController : ControllerBase
     [HttpPost("start")]
     public async Task<ActionResult<TraceApiResult>> StartTrace([FromBody] StartTraceRequest request)
     {
+        // Validate required fields
+        if (string.IsNullOrWhiteSpace(request.SessionName) ||
+            string.IsNullOrWhiteSpace(request.DatabaseName) ||
+            string.IsNullOrWhiteSpace(request.ConnectionString))
+        {
+            return BadRequest(new TraceApiResult
+            {
+                Success = false,
+                Message = "Required fields are missing: SessionName, DatabaseName, and ConnectionString are all required.",
+                SessionName = request.SessionName
+            });
+        }
+
         try
         {
             _logger.LogInformation("Starting trace session {SessionName}", request.SessionName);
@@ -373,7 +386,7 @@ public class TraceSessionStatus
     public Guid SessionId { get; set; }
     public string SessionName { get; set; } = string.Empty;
     public string DatabaseName { get; set; } = string.Empty;
-    public TraceStatus Status { get; set; }
+    public TraceStatus Status { get; set; } = new TraceStatus();
     public DateTime StartTime { get; set; }
     public DateTime? EndTime { get; set; }
     public int EventCount { get; set; }
@@ -385,7 +398,7 @@ public class TraceSessionSummary
     public Guid SessionId { get; set; }
     public string SessionName { get; set; } = string.Empty;
     public string DatabaseName { get; set; } = string.Empty;
-    public TraceStatus Status { get; set; }
+    public TraceStatus Status { get; set; } = new TraceStatus();
     public DateTime StartTime { get; set; }
     public DateTime? EndTime { get; set; }
     public int EventCount { get; set; }

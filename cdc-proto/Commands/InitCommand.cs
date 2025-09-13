@@ -1,7 +1,5 @@
-﻿using System;
-using System.CommandLine;
+﻿using System.CommandLine;
 using System.CommandLine.NamingConventionBinder;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Softbase.Cdc;
 
@@ -16,7 +14,7 @@ namespace Softbase
            : base("init", "initialize a database with cdc")
         {
             _dac = dac;
-            _logger = factory.CreateLogger<InitCommand>() ;
+            _logger = factory.CreateLogger<InitCommand>();
 
             this.Handler = CommandHandler.Create(() => this.HandleCommand());
 

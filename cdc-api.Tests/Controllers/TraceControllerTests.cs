@@ -24,8 +24,46 @@ public class TraceControllerTests : IClassFixture<WebApplicationFactory<Program>
             builder.ConfigureServices(services =>
             {
                 // Replace real services with mocks for testing
-                var mockTraceManager = new Mock<TraceManager>();
+                var mockTraceManager = new Mock<ITraceManager>();
                 var mockTraceDataProvider = new Mock<ITraceDataProvider>();
+
+                // Setup mock returns for successful operations
+                var testSession = new TraceSession
+                {
+                    SessionId = Guid.NewGuid(),
+                    SessionName = "TestSession",
+                    DatabaseName = "TestDB",
+                    Status = TraceStatus.Running,
+                    StartTime = DateTime.UtcNow,
+                    Configuration = new TraceConfiguration()
+                };
+
+                mockTraceManager.Setup(x => x.StartTraceAsync(It.IsAny<TraceConfiguration>(), It.IsAny<string>()))
+                    .ReturnsAsync(testSession);
+
+                mockTraceManager.Setup(x => x.StopTraceAsync(It.IsAny<Guid>()))
+                    .ReturnsAsync(testSession);
+
+                mockTraceManager.Setup(x => x.IsTraceRunningAsync(It.IsAny<string>()))
+                    .ReturnsAsync(true);
+
+                mockTraceManager.Setup(x => x.ExportTraceDataAsync(It.IsAny<Guid>(), It.IsAny<string>()))
+                    .ReturnsAsync("/path/to/export");
+
+                mockTraceDataProvider.Setup(x => x.GetTraceSessionByNameAsync(It.IsAny<string>()))
+                    .ReturnsAsync(testSession);
+
+                mockTraceDataProvider.Setup(x => x.GetTraceSessionAsync(It.IsAny<Guid>()))
+                    .ReturnsAsync(testSession);
+
+                mockTraceDataProvider.Setup(x => x.GetTraceSessionsAsync())
+                    .ReturnsAsync(new List<TraceSession> { testSession });
+
+                mockTraceDataProvider.Setup(x => x.GetTraceEventCountAsync(It.IsAny<Guid>()))
+                    .ReturnsAsync(100);
+
+                mockTraceDataProvider.Setup(x => x.GetTraceEventsAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<int>()))
+                    .ReturnsAsync(new List<TraceEvent>());
 
                 services.AddSingleton(mockTraceManager.Object);
                 services.AddSingleton(mockTraceDataProvider.Object);

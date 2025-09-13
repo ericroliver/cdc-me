@@ -6,6 +6,7 @@ using Xunit;
 using FluentAssertions;
 using Moq;
 using Softbase.Cdc.Trace;
+using Softbase.Cdc.Data;
 using Softbase.Cdc.Models;
 using cdc_api.Controllers;
 
@@ -24,7 +25,28 @@ public class SnapshotControllerTests : IClassFixture<WebApplicationFactory<Progr
             builder.ConfigureServices(services =>
             {
                 // Replace real services with mocks for testing
-                var mockSnapshotManager = new Mock<SnapshotManager>();
+                var mockSnapshotManager = new Mock<ISnapshotManager>();
+                // Setup mock returns for successful operations
+                mockSnapshotManager.Setup(x => x.CreateSnapshotAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                    .ReturnsAsync(new SnapshotResult { Success = true, Message = "Snapshot created successfully" });
+
+                mockSnapshotManager.Setup(x => x.RestoreSnapshotAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                    .ReturnsAsync(new SnapshotResult { Success = true, Message = "Snapshot restored successfully" });
+
+                mockSnapshotManager.Setup(x => x.DropSnapshotAsync(It.IsAny<string>(), It.IsAny<string>()))
+                    .ReturnsAsync(new SnapshotResult { Success = true, Message = "Snapshot deleted successfully" });
+
+                mockSnapshotManager.Setup(x => x.ListSnapshotsAsync(It.IsAny<string>(), It.IsAny<string>()))
+                    .ReturnsAsync(new List<SnapshotInfo>
+                    {
+                        new SnapshotInfo
+                        {
+                            SnapshotName = "TestSnapshot",
+                            SourceDatabase = "TestDB",
+                            CreatedTime = DateTime.UtcNow
+                        }
+                    });
+
                 services.AddSingleton(mockSnapshotManager.Object);
             });
         }).CreateClient();

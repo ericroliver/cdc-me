@@ -20,6 +20,38 @@
             "stopAtEntry": false
         },
         {
+            "name": "cdc-api",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/cdc-api/bin/Debug/net6.0/cdc-api.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/cdc-api",
+            "console": "internalConsole",
+            "stopAtEntry": false,
+            "serverReadyAction": {
+                "action": "openExternally",
+                "pattern": "\\bNow listening on:\\s+(https?://\\S+)"
+            },
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development"
+            }
+        },
+        {
+            "name": "cdc-api (Production)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/cdc-api/bin/Debug/net6.0/cdc-api.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/cdc-api",
+            "console": "internalConsole",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Production"
+            }
+        },
+        {
             "name": ".NET Core Attach",
             "type": "coreclr",
             "request": "attach"

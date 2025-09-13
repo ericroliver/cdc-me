@@ -1,8 +1,4 @@
-﻿using System;
-using System.Linq;
-using System.Runtime.InteropServices;
-
-#if WINDOWS
+﻿#if WINDOWS
 [DllImport("ODBCCP32.DLL", CharSet = CharSet.Unicode, SetLastError = true)]
         static extern bool SQLConfigDataSourceW(UInt32 hwndParent, RequestFlags fRequest, string lpszDriver, string lpszAttributes);
 

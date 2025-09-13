@@ -10,7 +10,7 @@ using Newtonsoft.Json;
 
 namespace Softbase.Cdc.Trace
 {
-    public class TraceManager
+    public class TraceManager : ITraceManager
     {
         private readonly SimpleDac _testDac;
         private readonly ITraceDataProvider _traceProvider;

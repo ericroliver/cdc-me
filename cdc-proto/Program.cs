@@ -1,17 +1,11 @@
-﻿using System;
-using System.CommandLine;
+﻿using System.CommandLine;
 using System.CommandLine.Builder;
-using System.CommandLine.Hosting;
-using System.CommandLine.Invocation;
-using System.CommandLine.NamingConventionBinder;
 using System.CommandLine.Parsing;
-using System.IO;
-using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Softbase;
+using Softbase.Cdc.Data;
 using CdcProto.Commands;
 
 
@@ -41,22 +35,31 @@ class Program
     private static ServiceProvider BuildServiceProvider()
     {
         var services = new ServiceCollection();
-        var connectionString = "Server=192.168.1.76,5433;Database=sbcrm;User Id=sa;Password=A123_Z321!;";
-        var config = new ConfigurationBuilder()
-            //.AddJsonFile("appsettings.json")
-            .Build();
-        services.AddLogging(c => c.AddConsole().AddDebug());
 
+        // Load configuration from environment variables
+        var config = new ConfigurationBuilder()
+            .AddEnvironmentVariables()
+            .Build();
+
+        services.AddLogging(c => c.AddConsole().AddDebug());
         services.AddSingleton<IConfiguration>(config);
+
+        // Add database connection factory using environment variables
+        services.AddSingleton<IDatabaseConnectionFactory>(sp =>
+        {
+            var logger = sp.GetRequiredService<ILogger<DatabaseConnectionFactory>>();
+            return new ConfigurationBasedDatabaseConnectionFactory(config, logger);
+        });
+
+        // Register SimpleDac for TEST_DB operations
         services.AddScoped<SimpleDac>(sp =>
         {
-            var lf = sp.GetService<ILoggerFactory>();
-            var logger = lf?.CreateLogger("cdc");
-            return new SimpleDac(connectionString, logger);
+            var factory = sp.GetRequiredService<IDatabaseConnectionFactory>();
+            var logger = sp.GetRequiredService<ILogger<SimpleDac>>();
+            return factory.CreateDac(DatabaseRole.TestDatabase, logger);
         });
 
         services.AddCliCommands();
-
         return services.BuildServiceProvider();
     }
     //static async Task Main(string[] args) => await BuildCommandLine()
@@ -140,8 +143,6 @@ internal class OldProgram
 {
     private static void Main(string[] args)
     {
-        const string configPath = "/usr/.cdc";
-
         //var init = args.Any(a => a.Equals("init"));
         var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Warning));
         var logger = loggerFactory.CreateLogger("CDC Utililty");
@@ -150,7 +151,7 @@ internal class OldProgram
         // 192.168.1.76
         var connectionString = "Server= 192.168.1.76,5443;Database=sbtest;User Id=sa;Password=A123_Z321!;";
         //var connectionString = "Server= 192.168.1.125,5443;Database=sbtest;User Id=sa;Password=A123_Z321!;";
-        var dac = new SimpleDac(connectionString, logger);
+        var dac = new SimpleDac(connectionString, DatabaseProvider.SqlServer, logger);
 
 
         //if (args.Any(a => a == "--test"))

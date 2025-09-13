@@ -1,13 +1,10 @@
-using System;
 using System.CommandLine;
-using System.CommandLine.Invocation;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Softbase;
+using Softbase.Cdc.Data;
 using Softbase.Cdc.Trace;
 using Softbase.Cdc.Models;
 using Newtonsoft.Json;
-using System.IO;
 
 namespace CdcProto.Commands
 {
@@ -96,7 +93,7 @@ namespace CdcProto.Commands
                 var testConnectionString = GetTestConnectionString(testConnection);
                 var traceConnectionString = GetTraceConnectionString(traceConnection, provider);
 
-                var testDac = new SimpleDac(testConnectionString, logger);
+                var testDac = new SimpleDac(testConnectionString, DatabaseProvider.SqlServer, logger);
                 var traceProvider = CreateTraceProvider(provider, traceConnectionString, logger);
                 var traceManager = new TraceManager(testDac, traceProvider, logger);
 
@@ -149,7 +146,7 @@ namespace CdcProto.Commands
                     traceSession = await traceProvider.GetSessionByNameAsync(session);
                 }
 
-                var testDac = new SimpleDac(traceSession.TestConnectionString, logger);
+                var testDac = new SimpleDac(traceSession.TestConnectionString, DatabaseProvider.SqlServer, logger);
                 var traceManager = new TraceManager(testDac, traceProvider, logger);
 
                 Console.WriteLine($"Stopping trace session '{traceSession.SessionName}'...");
@@ -189,7 +186,7 @@ namespace CdcProto.Commands
                     traceSession = await traceProvider.GetSessionByNameAsync(session);
                 }
 
-                var testDac = new SimpleDac(traceSession.TestConnectionString, logger);
+                var testDac = new SimpleDac(traceSession.TestConnectionString, DatabaseProvider.SqlServer, logger);
                 var traceManager = new TraceManager(testDac, traceProvider, logger);
 
                 var status = await traceManager.GetTraceStatusAsync(traceSession.SessionId);
