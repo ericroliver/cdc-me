@@ -116,25 +116,34 @@ public static class SystemCommandLineExtensions
 {
     public static IServiceCollection AddCliCommands(this IServiceCollection services)
     {
-        Type commandType = typeof(InitCommand);
-        Type baseCommandType = typeof(Command);
+        // Use a trimming-safe approach to register commands
+        var commandTypes = GetCommandTypes();
 
-        IEnumerable<Type> commands = commandType
-            .Assembly
-            .GetExportedTypes()
-            .Where(x => x.Namespace == commandType.Namespace && baseCommandType.IsAssignableFrom(x));
-
-        foreach (Type command in commands)
+        foreach (Type commandType in commandTypes)
         {
-            services.AddSingleton(baseCommandType, command);
+            services.AddSingleton(typeof(Command), commandType);
         }
 
-        // Add new trace commands
+        // Add static command factory methods
         services.AddSingleton<Command>(SnapshotCommand.CreateCommand());
         services.AddSingleton<Command>(TraceCommand.CreateCommand());
         services.AddSingleton<Command>(ReplayCommand.CreateCommand());
 
         return services;
+    }
+
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "Command types are preserved by DynamicallyAccessedMembers")]
+    [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)]
+    private static Type[] GetCommandTypes()
+    {
+        // Explicitly list command types to avoid reflection issues with trimming
+        return new Type[]
+        {
+            typeof(DiffCommand),
+            typeof(InitCommand),
+            typeof(ProfileCommand),
+            typeof(TeardownCommand)
+        };
     }
 }
 

@@ -2,10 +2,9 @@
 # Supports multi-architecture builds (linux/amd64, linux/arm64)
 
 ARG DOTNET_VERSION=9.0
-ARG ALPINE_VERSION=3.18
 
 # Build stage
-FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_VERSION}-alpine${ALPINE_VERSION} AS build
+FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_VERSION}-alpine AS build
 ARG TARGETARCH
 ARG VERSION=1.0.0
 
@@ -45,7 +44,7 @@ RUN dotnet publish "cdc-api/cdc-api.csproj" \
     -p:Version=${VERSION}
 
 # Runtime stage
-FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION}-alpine${ALPINE_VERSION} AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION}-alpine AS runtime
 
 # Install additional packages if needed
 RUN apk add --no-cache \
