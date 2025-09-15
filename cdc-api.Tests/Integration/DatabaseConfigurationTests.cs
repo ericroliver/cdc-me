@@ -120,7 +120,7 @@ namespace cdc_api.Tests.Integration
 
         private static IConfiguration CreateTestConfiguration()
         {
-            var configData = new Dictionary<string, string>
+            var configData = new Dictionary<string, string?>
             {
                 ["ConnectionStrings:TEST_DB_CONNECTION"] = "Server=test-sql;Database=testdb;User Id=sa;Password=test123;TrustServerCertificate=true;",
                 ["ConnectionStrings:CDCME_DB_CONNECTION"] = "Host=test-postgres;Database=cdcme;Username=postgres;Password=test123;",
