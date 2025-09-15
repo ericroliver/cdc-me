@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
 namespace Softbase
@@ -312,6 +313,7 @@ namespace Softbase
             return ReadRecordAsDictionary(reader, false);
         }
 
+        [UnconditionalSuppressMessage("Trimming", "IL2072:Target parameter argument does not satisfy 'DynamicallyAccessedMemberTypes' in call to target method. The return value of the source method does not have matching annotations.", Justification = "GetDefaultValueForType handles common database types explicitly and falls back to Activator.CreateInstance only for value types which should have parameterless constructors.")]
         public static IDictionary<string, object> ReadRecordAsDictionary(this IDataReader reader, bool withDbNulls)
         {
             // Trying to force current to pick up the good change
@@ -330,7 +332,7 @@ namespace Softbase
                     if (!withDbNulls)
                     {
                         var type = reader.GetFieldType(i);
-                        value = type.IsValueType ? Activator.CreateInstance(type) : null;
+                        value = type.IsValueType ? GetDefaultValueForType(type) : null;
                     }
                     else
                         value = DBNull.Value;
@@ -339,6 +341,52 @@ namespace Softbase
                 item.Add(fieldName, value);
             }
             return item;
+        }
+
+        /// <summary>
+        /// Gets the default value for a given type, handling common database types explicitly
+        /// to avoid trimming issues with Activator.CreateInstance.
+        /// </summary>
+        /// <param name="type">The type to get the default value for.</param>
+        /// <returns>The default value for the type.</returns>
+        private static object? GetDefaultValueForType([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] Type type)
+        {
+            // Handle common database types explicitly to avoid trimming issues
+            if (type == typeof(int)) return 0;
+            if (type == typeof(long)) return 0L;
+            if (type == typeof(short)) return (short)0;
+            if (type == typeof(byte)) return (byte)0;
+            if (type == typeof(bool)) return false;
+            if (type == typeof(decimal)) return 0m;
+            if (type == typeof(double)) return 0.0;
+            if (type == typeof(float)) return 0f;
+            if (type == typeof(DateTime)) return DateTime.MinValue;
+            if (type == typeof(DateTimeOffset)) return DateTimeOffset.MinValue;
+            if (type == typeof(TimeSpan)) return TimeSpan.Zero;
+            if (type == typeof(Guid)) return Guid.Empty;
+
+            // Handle nullable versions
+            if (type == typeof(int?)) return null;
+            if (type == typeof(long?)) return null;
+            if (type == typeof(short?)) return null;
+            if (type == typeof(byte?)) return null;
+            if (type == typeof(bool?)) return null;
+            if (type == typeof(decimal?)) return null;
+            if (type == typeof(double?)) return null;
+            if (type == typeof(float?)) return null;
+            if (type == typeof(DateTime?)) return null;
+            if (type == typeof(DateTimeOffset?)) return null;
+            if (type == typeof(TimeSpan?)) return null;
+            if (type == typeof(Guid?)) return null;
+
+            // For other value types, try to use Activator.CreateInstance with proper annotation
+            if (type.IsValueType)
+            {
+                return Activator.CreateInstance(type);
+            }
+
+            // For reference types, return null
+            return null;
         }
 
         public static List<int> ReadListOfInts(this IDataReader reader)
