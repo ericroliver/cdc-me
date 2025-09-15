@@ -6,7 +6,7 @@ on:
       - "v*.*.*"
 
 env:
-  DOTNET_VERSION: "6.0.x"
+  DOTNET_VERSION: "9.0.x"
   CLI_PROJECT_PATH: "cdc-proto/cdc-utility.csproj"
   API_PROJECT_PATH: "cdc-api/cdc-api.csproj"
 

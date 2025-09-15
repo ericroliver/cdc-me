@@ -22,7 +22,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  DOTNET_VERSION: "6.0.x"
+  DOTNET_VERSION: "9.0.x"
 
 jobs:
   # Build Information

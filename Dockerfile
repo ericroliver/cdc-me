@@ -1,7 +1,7 @@
 # Multi-stage Dockerfile for CDC Testing Framework API
 # Supports multi-architecture builds (linux/amd64, linux/arm64)
 
-ARG DOTNET_VERSION=6.0
+ARG DOTNET_VERSION=9.0
 ARG ALPINE_VERSION=3.19
 
 # Build stage
@@ -70,7 +70,9 @@ USER appuser
 EXPOSE 8080
 
 # Health check - using wget since it's available in alpine
+USER root
 RUN apk add --no-cache wget
+USER appuser
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
