@@ -11,6 +11,11 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsNotAsErrors>CS8632</WarningsNotAsErrors>
     <NoWarn>CS8632</NoWarn>
+    <!-- Suppress trim warnings for dependencies that are not trim-safe -->
+    <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <!-- Suppress specific IL warnings for known incompatible assemblies -->
+    <NoWarn>$(NoWarn);IL2026;IL2104</NoWarn>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <WarningLevel>4</WarningLevel>
