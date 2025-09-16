@@ -117,12 +117,11 @@ public static class SystemCommandLineExtensions
     public static IServiceCollection AddCliCommands(this IServiceCollection services)
     {
         // Use a trimming-safe approach to register commands
-        var commandTypes = GetCommandTypes();
-
-        foreach (Type commandType in commandTypes)
-        {
-            services.AddSingleton(typeof(Command), commandType);
-        }
+        // Register command types directly to preserve trimming annotations
+        services.AddSingleton(typeof(Command), typeof(DiffCommand));
+        services.AddSingleton(typeof(Command), typeof(InitCommand));
+        services.AddSingleton(typeof(Command), typeof(ProfileCommand));
+        services.AddSingleton(typeof(Command), typeof(TeardownCommand));
 
         // Add static command factory methods
         services.AddSingleton<Command>(SnapshotCommand.CreateCommand());
@@ -132,19 +131,6 @@ public static class SystemCommandLineExtensions
         return services;
     }
 
-    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "Command types are preserved by DynamicallyAccessedMembers")]
-    [System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembers(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors)]
-    private static Type[] GetCommandTypes()
-    {
-        // Explicitly list command types to avoid reflection issues with trimming
-        return new Type[]
-        {
-            typeof(DiffCommand),
-            typeof(InitCommand),
-            typeof(ProfileCommand),
-            typeof(TeardownCommand)
-        };
-    }
 }
 
 //systranschemas,lsn_time_mapping,ddl_history,change_tables,captured_columns,index_columns
