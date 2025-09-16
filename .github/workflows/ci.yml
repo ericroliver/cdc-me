@@ -25,7 +25,7 @@ jobs:
   # Build Information Job
   build-info:
     name: Build Information
-    runs-on: ubuntu-latest
+    runs-on: buildjet-4vcpu-ubuntu-2204
     outputs:
       version: ${{ steps.version.outputs.version }}
       numeric-version: ${{ steps.version.outputs.numeric-version }}
@@ -65,7 +65,7 @@ jobs:
   # Linting and Static Analysis Job
   lint-and-analyze:
     name: Lint and Static Analysis
-    runs-on: ubuntu-latest
+    runs-on: buildjet-4vcpu-ubuntu-2204
     needs: build-info
 
     steps:
@@ -118,7 +118,7 @@ jobs:
 
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuildjet-4vcpu-ubuntu-2204, windows-latest, macos-latest]
       fail-fast: false
 
     steps:
@@ -169,7 +169,7 @@ jobs:
   # Cross-platform CLI Build Job
   build-cli-cross-platform:
     name: Build Cross-Platform CLI Executables
-    runs-on: ubuntu-latest
+    runs-on: buildjet-4vcpu-ubuntu-2204
     needs: [build-info, lint-and-analyze, test]
     if: always() && (needs.lint-and-analyze.result == 'success') && (needs.test.result == 'success' || inputs.skip_tests)
 
@@ -243,7 +243,7 @@ jobs:
   # Security Scan Job
   security-scan:
     name: Security Scan
-    runs-on: ubuntu-latest
+    runs-on: buildjet-4vcpu-ubuntu-2204
     needs: [build-info, lint-and-analyze]
 
     steps:
@@ -291,7 +291,7 @@ jobs:
   # Performance Benchmarks (optional)
   benchmarks:
     name: Performance Benchmarks
-    runs-on: ubuntu-latest
+    runs-on: buildjet-4vcpu-ubuntu-2204
     needs: [build-info, lint-and-analyze]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     continue-on-error: true
@@ -328,7 +328,7 @@ jobs:
   # Summary Job
   build-summary:
     name: Build Summary
-    runs-on: ubuntu-latest
+    runs-on: buildjet-4vcpu-ubuntu-2204
     needs:
       [
         build-info,
