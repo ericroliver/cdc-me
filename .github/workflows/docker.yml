@@ -217,7 +217,7 @@ jobs:
 
       - name: Verify executable exists in container
         run: |
-          docker run --rm cdc-api:test sh -c "ls -la /app/ && file /app/cdc-api.dll"
+          docker run --rm --entrypoint="" cdc-api:test sh -c "ls -la /app/ && file /app/cdc-api.dll"
 
   # Security Scan
   security-scan:
