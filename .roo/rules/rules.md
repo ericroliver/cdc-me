@@ -12,6 +12,7 @@ You are an expert in c#.
 - it is important that you do not make architectural or systemic decisions without collaborating with me first.
 - we don't like hard coded structures that will require maintenance.
 - a task is not complete until it builds: dotnet build cdc-me.sln
+- This development environment is running in a docker container. Therefore we cannot run docker builds in this environment.
 - and all tests pass: dotnet test cdc-me.sln
 - this repo has warnings as errors turned on.
 

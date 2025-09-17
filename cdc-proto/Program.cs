@@ -116,26 +116,21 @@ public static class SystemCommandLineExtensions
 {
     public static IServiceCollection AddCliCommands(this IServiceCollection services)
     {
-        Type commandType = typeof(InitCommand);
-        Type baseCommandType = typeof(Command);
+        // Use a trimming-safe approach to register commands
+        // Register command types directly to preserve trimming annotations
+        services.AddSingleton(typeof(Command), typeof(DiffCommand));
+        services.AddSingleton(typeof(Command), typeof(InitCommand));
+        services.AddSingleton(typeof(Command), typeof(ProfileCommand));
+        services.AddSingleton(typeof(Command), typeof(TeardownCommand));
 
-        IEnumerable<Type> commands = commandType
-            .Assembly
-            .GetExportedTypes()
-            .Where(x => x.Namespace == commandType.Namespace && baseCommandType.IsAssignableFrom(x));
-
-        foreach (Type command in commands)
-        {
-            services.AddSingleton(baseCommandType, command);
-        }
-
-        // Add new trace commands
+        // Add static command factory methods
         services.AddSingleton<Command>(SnapshotCommand.CreateCommand());
         services.AddSingleton<Command>(TraceCommand.CreateCommand());
         services.AddSingleton<Command>(ReplayCommand.CreateCommand());
 
         return services;
     }
+
 }
 
 //systranschemas,lsn_time_mapping,ddl_history,change_tables,captured_columns,index_columns

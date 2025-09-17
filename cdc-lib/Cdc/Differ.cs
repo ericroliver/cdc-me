@@ -12,7 +12,7 @@ public class ProfileDiffer
 
     }
 
-    public IDictionary<string, IDictionary<string,object>> Diff(IEnumerable<SqlTable> tables,
+    public IDictionary<string, IDictionary<string, object>> Diff(IEnumerable<SqlTable> tables,
                             IDictionary<string, IEnumerable<IDictionary<string, object>>> leftProfile,
                             IDictionary<string, IEnumerable<IDictionary<string, object>>> rightProfile)
     {
@@ -26,14 +26,14 @@ public class ProfileDiffer
             var left = default(IEnumerable<IDictionary<string, object>>);
             var right = default(IEnumerable<IDictionary<string, object>>);
             var index = table.GetPrimaryIndex();
-            var tableObject = new Dictionary<string,object>();
+            var tableObject = new Dictionary<string, object>();
 
             tableObject["table"] = table;
             tableObject["index"] = index;
 
             var tableDiff = new List<Diff>();
             tableObject["diff"] = tableDiff;
-            
+
             if (index == null)
                 continue;
 

@@ -1,0 +1,249 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+env:
+  DOTNET_VERSION: "9.0.x"
+  CLI_PROJECT_PATH: "cdc-proto/cdc-utility.csproj"
+  API_PROJECT_PATH: "cdc-api/cdc-api.csproj"
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      release_id: ${{ steps.create_release.outputs.id }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ steps.get_version.outputs.VERSION }}
+          draft: false
+          prerelease: false
+          body: |
+            ## Changes in ${{ steps.get_version.outputs.VERSION }}
+
+            ### Features
+            - CDC Testing Framework for database change validation
+            - Cross-platform CLI tool for CDC operations
+            - Web API for CDC testing workflows
+            - Support for SQL Server Change Data Capture
+            - Database snapshot and replay capabilities
+
+            ### Downloads
+
+            #### CLI Tool
+            Choose the appropriate CLI executable for your platform:
+            - **Windows x64**: `cdc-cli-win-x64.zip`
+            - **Windows ARM64**: `cdc-cli-win-arm64.zip`
+            - **Linux x64**: `cdc-cli-linux-x64.tar.gz`
+            - **Linux ARM64**: `cdc-cli-linux-arm64.tar.gz`
+            - **macOS Intel**: `cdc-cli-osx-x64.tar.gz`
+            - **macOS Apple Silicon**: `cdc-cli-osx-arm64.tar.gz`
+
+            #### Docker Image
+            The CDC API is also available as a Docker image:
+            ```bash
+            docker pull ghcr.io/${{ github.repository }}:${{ steps.get_version.outputs.VERSION }}
+            ```
+
+            ### Usage
+
+            #### CLI Tool
+            ```bash
+            # Initialize CDC on a database
+            ./cdc-proto init --connection-string "your-connection-string"
+
+            # Create a snapshot
+            ./cdc-proto snapshot create --name "baseline" --connection-string "your-connection-string"
+
+            # Start tracing
+            ./cdc-proto trace start --connection-string "your-connection-string"
+            ```
+
+            #### API
+            ```bash
+            # Run the API locally
+            docker run -p 8080:8080 ghcr.io/${{ github.repository }}:${{ steps.get_version.outputs.VERSION }}
+            ```
+
+  build-cli-and-upload:
+    name: Build and Upload CLI Release Assets
+    runs-on: ubuntu-latest
+    needs: create-release
+
+    strategy:
+      matrix:
+        runtime:
+          [win-x64, win-arm64, linux-x64, linux-arm64, osx-x64, osx-arm64]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.CLI_PROJECT_PATH }}
+
+      - name: Publish CLI for ${{ matrix.runtime }}
+        run: |
+          dotnet publish ${{ env.CLI_PROJECT_PATH }} \
+            --configuration Release \
+            --runtime ${{ matrix.runtime }} \
+            --self-contained true \
+            --output ./publish/${{ matrix.runtime }} \
+            -p:PublishSingleFile=true \
+            -p:PublishTrimmed=false \
+            -p:Version=${{ steps.get_version.outputs.VERSION }}
+
+      - name: Create archive for ${{ matrix.runtime }}
+        run: |
+          cd ./publish/${{ matrix.runtime }}
+          if [[ "${{ matrix.runtime }}" == win-* ]]; then
+            zip -r ../../cdc-cli-${{ matrix.runtime }}.zip .
+            echo "ASSET_PATH=../../cdc-cli-${{ matrix.runtime }}.zip" >> $GITHUB_ENV
+            echo "ASSET_NAME=cdc-cli-${{ matrix.runtime }}.zip" >> $GITHUB_ENV
+            echo "ASSET_CONTENT_TYPE=application/zip" >> $GITHUB_ENV
+          else
+            tar -czf ../../cdc-cli-${{ matrix.runtime }}.tar.gz .
+            echo "ASSET_PATH=../../cdc-cli-${{ matrix.runtime }}.tar.gz" >> $GITHUB_ENV
+            echo "ASSET_NAME=cdc-cli-${{ matrix.runtime }}.tar.gz" >> $GITHUB_ENV
+            echo "ASSET_CONTENT_TYPE=application/gzip" >> $GITHUB_ENV
+          fi
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ${{ env.ASSET_PATH }}
+          asset_name: ${{ env.ASSET_NAME }}
+          asset_content_type: ${{ env.ASSET_CONTENT_TYPE }}
+
+  build-api-and-upload:
+    name: Build and Upload API Release Assets
+    runs-on: ubuntu-latest
+    needs: create-release
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.API_PROJECT_PATH }}
+
+      - name: Publish API for linux-x64
+        run: |
+          dotnet publish ${{ env.API_PROJECT_PATH }} \
+            --configuration Release \
+            --runtime linux-x64 \
+            --self-contained true \
+            --output ./publish/api-linux-x64 \
+            -p:PublishSingleFile=false \
+            -p:PublishTrimmed=false \
+            -p:Version=${{ steps.get_version.outputs.VERSION }}
+
+      - name: Create API archive
+        run: |
+          cd ./publish/api-linux-x64
+          tar -czf ../../cdc-api-linux-x64.tar.gz .
+
+      - name: Upload API Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./cdc-api-linux-x64.tar.gz
+          asset_name: cdc-api-linux-x64.tar.gz
+          asset_content_type: application/gzip
+
+  trigger-docker-release:
+    name: Trigger Docker Release
+    runs-on: ubuntu-latest
+    needs: create-release
+
+    steps:
+      - name: Trigger Docker workflow
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'docker.yml',
+              ref: context.ref,
+              inputs: {
+                push_to_registry: 'true'
+              }
+            });
+
+  release-summary:
+    name: Release Summary
+    runs-on: ubuntu-latest
+    needs:
+      [
+        create-release,
+        build-cli-and-upload,
+        build-api-and-upload,
+        trigger-docker-release,
+      ]
+    if: always()
+
+    steps:
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Release Summary
+        run: |
+          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag**: ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Job Results" >> $GITHUB_STEP_SUMMARY
+          echo "- **Create Release**: ${{ needs.create-release.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **CLI Build & Upload**: ${{ needs.build-cli-and-upload.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **API Build & Upload**: ${{ needs.build-api-and-upload.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Docker Release Trigger**: ${{ needs.trigger-docker-release.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Downloads" >> $GITHUB_STEP_SUMMARY
+          echo "- CLI executables for all platforms" >> $GITHUB_STEP_SUMMARY
+          echo "- API standalone package for Linux" >> $GITHUB_STEP_SUMMARY
+          echo "- Docker image: \`ghcr.io/${{ github.repository }}:${{ steps.get_version.outputs.VERSION }}\`" >> $GITHUB_STEP_SUMMARY
