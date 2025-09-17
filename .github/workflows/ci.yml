@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, develop, eo/setup-test-bed]
+    branches: [main, develop]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -269,17 +269,15 @@ jobs:
       - name: Restore dotnet tools
         run: dotnet tool restore
 
+      - name: Install dotnet-outdated tool
+        run: dotnet tool install -g dotnet-outdated-tool
+
       - name: Run vulnerability scan
         run: dotnet list package --vulnerable --include-transitive
 
       - name: Check for outdated packages
         continue-on-error: true
-        run: |
-          if command -v dotnet-outdated &> /dev/null; then
-            dotnet outdated ${{ env.SOLUTION_FILE }}
-          else
-            echo "dotnet-outdated tool not available, skipping outdated package check"
-          fi
+        run: dotnet outdated ${{ env.SOLUTION_FILE }}
 
       - name: Fail on vulnerabilities
         run: |
