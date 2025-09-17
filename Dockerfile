@@ -50,6 +50,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION}-alpine AS runtime
 RUN apk add --no-cache \
     ca-certificates \
     tzdata \
+    file \
     && update-ca-certificates
 
 # Create non-root user
