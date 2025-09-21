@@ -8,7 +8,7 @@ This document outlines the complete implementation plan for exposing CDC (Change
 
 ### 1. API Design
 
-- **Three main endpoints** designed: `/cdc/start`, `/cdc/stop`, `/cdc/capture`
+- **Three main endpoints** designed: `/api/cdc/start`, `/api/cdc/stop`, `/api/cdc/capture`
 - **Request/Response models** created in [`cdc-api/Models/CdcModels.cs`](../cdc-api/Models/CdcModels.cs)
 - **Comprehensive API specification** documented in [`docs/cdc-api-design.md`](./cdc-api-design.md)
 
@@ -124,7 +124,7 @@ private async Task<string> SaveCdcCaptureAsync(
 
 ```bash
 # 1. Start CDC with table filtering
-POST /cdc/start
+POST /api/cdc/start
 {
   "sessionName": "order-processing-test",
   "tablesToInclude": ["dbo.Orders", "dbo.OrderItems"],
@@ -135,7 +135,7 @@ POST /cdc/start
 # ... business logic executes, CDC captures changes ...
 
 # 3. Stop CDC and capture data
-POST /cdc/stop
+POST /api/cdc/stop
 {
   "sessionName": "order-processing-test",
   "captureName": "baseline-capture",
@@ -147,7 +147,7 @@ POST /cdc/stop
 
 ```bash
 # Optional: Capture intermediate data without stopping CDC
-POST /cdc/capture
+POST /api/cdc/capture
 {
   "sessionName": "order-processing-test",
   "captureName": "checkpoint-1",

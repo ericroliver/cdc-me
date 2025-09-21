@@ -10,7 +10,7 @@ The CDC Testing Framework uses SQL Server's Change Data Capture functionality to
 
 ## API Endpoints
 
-### 1. POST /cdc/start
+### 1. POST /api/cdc/start
 
 **Purpose**: Enable CDC on the database and specified tables
 
@@ -45,7 +45,7 @@ The CDC Testing Framework uses SQL Server's Change Data Capture functionality to
 - Calls [`CdcDataUtilities.EnableTableCdc()`](../cdc-lib/Cdc/CdcDataUtilities.cs#L143) for filtered tables
 - Creates or updates session in [`trace_sessions`](../scripts/create-trace-database-postgresql-part2.sql#L12) table
 
-### 2. POST /cdc/stop
+### 2. POST /api/cdc/stop
 
 **Purpose**: Capture CDC data, save to CdcMe database, and disable CDC
 
@@ -98,7 +98,7 @@ The CDC Testing Framework uses SQL Server's Change Data Capture functionality to
 - Calls [`CdcDataUtilities.DisableCdcOnDatabase()`](../cdc-lib/Cdc/CdcDataUtilities.cs#L18)
 - Returns capture header ID and table details for future reference
 
-### 3. POST /cdc/capture (Optional)
+### 3. POST /api/cdc/capture (Optional)
 
 **Purpose**: Capture CDC data without stopping CDC (for intermediate captures)
 
@@ -193,7 +193,7 @@ sequenceDiagram
     participant SQLServer as SQL Server (TestDB)
     participant PostgreSQL as PostgreSQL (CdcMeDB)
 
-    Client->>API: POST /cdc/start
+    Client->>API: POST /api/cdc/start
     API->>SQLServer: Enable CDC on database
     API->>SQLServer: Get all tables
     API->>SQLServer: Enable CDC on filtered tables
@@ -202,7 +202,7 @@ sequenceDiagram
 
     Note over Client,PostgreSQL: Business operations occur here
 
-    Client->>API: POST /cdc/stop
+    Client->>API: POST /api/cdc/stop
     API->>SQLServer: Capture CDC data
     API->>PostgreSQL: Save captured data to cdc_captures
     API->>SQLServer: Disable CDC

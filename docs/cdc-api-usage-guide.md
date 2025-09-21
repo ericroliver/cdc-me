@@ -19,7 +19,7 @@ The CDC API provides REST endpoints for managing Change Data Capture (CDC) opera
 
 ### 1. Start CDC Operations
 
-**Endpoint**: `POST /cdc/start`
+**Endpoint**: `POST /api/cdc/start`
 
 **Purpose**: Enable CDC on the database and specified tables.
 
@@ -54,7 +54,7 @@ The CDC API provides REST endpoints for managing Change Data Capture (CDC) opera
 
 ### 2. Stop CDC and Capture Data
 
-**Endpoint**: `POST /cdc/stop`
+**Endpoint**: `POST /api/cdc/stop`
 
 **Purpose**: Capture all CDC data, save it to the CdcMe database with a name, and disable CDC.
 
@@ -91,7 +91,7 @@ The CDC API provides REST endpoints for managing Change Data Capture (CDC) opera
 
 ### 3. Capture Data Without Stopping CDC
 
-**Endpoint**: `POST /cdc/capture`
+**Endpoint**: `POST /api/cdc/capture`
 
 **Purpose**: Capture CDC data at a point in time without stopping CDC (for intermediate captures).
 
@@ -113,7 +113,7 @@ The CDC API provides REST endpoints for managing Change Data Capture (CDC) opera
 
 ```bash
 # 1. Start CDC monitoring
-curl -X POST http://localhost:5000/cdc/start \
+curl -X POST http://localhost:5000/api/cdc/start \
   -H "Content-Type: application/json" \
   -d '{
     "sessionName": "my-test-session",
@@ -124,7 +124,7 @@ curl -X POST http://localhost:5000/cdc/start \
 # ... your application logic that modifies data ...
 
 # 3. Stop CDC and capture the changes
-curl -X POST http://localhost:5000/cdc/stop \
+curl -X POST http://localhost:5000/api/cdc/stop \
   -H "Content-Type: application/json" \
   -d '{
     "sessionName": "my-test-session",
@@ -137,7 +137,7 @@ curl -X POST http://localhost:5000/cdc/stop \
 
 ```bash
 # 1. Start CDC
-curl -X POST http://localhost:5000/cdc/start \
+curl -X POST http://localhost:5000/api/cdc/start \
   -H "Content-Type: application/json" \
   -d '{
     "sessionName": "performance-test",
@@ -148,7 +148,7 @@ curl -X POST http://localhost:5000/cdc/start \
 # ... business operations ...
 
 # 3. Take intermediate capture
-curl -X POST http://localhost:5000/cdc/capture \
+curl -X POST http://localhost:5000/api/cdc/capture \
   -H "Content-Type: application/json" \
   -d '{
     "sessionName": "performance-test",
@@ -160,7 +160,7 @@ curl -X POST http://localhost:5000/cdc/capture \
 # ... more business operations ...
 
 # 5. Final capture and stop
-curl -X POST http://localhost:5000/cdc/stop \
+curl -X POST http://localhost:5000/api/cdc/stop \
   -H "Content-Type: application/json" \
   -d '{
     "sessionName": "performance-test",
@@ -305,14 +305,14 @@ public async Task TestOrderProcessing()
 {
     // Start CDC
     var startRequest = new { sessionName = "order-test", tablesToInclude = new[] { "dbo.Orders" } };
-    await _httpClient.PostAsJsonAsync("/cdc/start", startRequest);
+    await _httpClient.PostAsJsonAsync("/api/cdc/start", startRequest);
 
     // Run business logic
     await ProcessOrders();
 
     // Capture and stop CDC
     var stopRequest = new { sessionName = "order-test", captureName = "test-result", captureType = "Test" };
-    var response = await _httpClient.PostAsJsonAsync("/cdc/stop", stopRequest);
+    var response = await _httpClient.PostAsJsonAsync("/api/cdc/stop", stopRequest);
 
     // Verify response
     var result = await response.Content.ReadFromJsonAsync<StopCdcResponse>();
@@ -328,7 +328,7 @@ import requests
 
 def test_customer_updates():
     # Start CDC
-    start_response = requests.post("http://localhost:5000/cdc/start", json={
+    start_response = requests.post("http://localhost:5000/api/cdc/start", json={
         "sessionName": "customer-test",
         "tablesToInclude": ["dbo.Customers"]
     })
@@ -338,7 +338,7 @@ def test_customer_updates():
     update_customers()
 
     # Stop and capture
-    stop_response = requests.post("http://localhost:5000/cdc/stop", json={
+    stop_response = requests.post("http://localhost:5000/api/cdc/stop", json={
         "sessionName": "customer-test",
         "captureName": "customer-updates",
         "captureType": "Test"

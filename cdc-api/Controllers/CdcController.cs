@@ -13,7 +13,7 @@ namespace cdc_api.Controllers;
 /// Controller for CDC (Change Data Capture) operations
 /// </summary>
 [ApiController]
-[Route("[controller]")]
+[Route("api/[controller]")]
 public class CdcController : ControllerBase
 {
     private readonly ILogger<CdcController> _logger;
