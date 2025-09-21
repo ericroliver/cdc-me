@@ -32,13 +32,12 @@ public class TraceController : ControllerBase
     {
         // Validate required fields
         if (string.IsNullOrWhiteSpace(request.SessionName) ||
-            string.IsNullOrWhiteSpace(request.DatabaseName) ||
-            string.IsNullOrWhiteSpace(request.ConnectionString))
+            string.IsNullOrWhiteSpace(request.DatabaseName))
         {
             return BadRequest(new TraceApiResult
             {
                 Success = false,
-                Message = "Required fields are missing: SessionName, DatabaseName, and ConnectionString are all required.",
+                Message = "Required fields are missing: SessionName and DatabaseName are required.",
                 SessionName = request.SessionName
             });
         }
@@ -52,7 +51,6 @@ public class TraceController : ControllerBase
             {
                 SessionName = request.SessionName,
                 DatabaseName = request.DatabaseName,
-                ConnectionString = request.ConnectionString,
                 MaxFileSize = request.MaxFileSize ?? 100,
                 MaxFiles = request.MaxFiles ?? 5,
                 EventsToCapture = request.EventsToCapture ?? new List<string> { "sql_statement_completed" },
@@ -60,7 +58,7 @@ public class TraceController : ControllerBase
             };
 
             // Start the trace
-            var session = await _traceManager.StartTraceAsync(config, request.ConnectionString);
+            var session = await _traceManager.StartTraceAsync(config);
 
             if (session != null)
             {
@@ -170,18 +168,18 @@ public class TraceController : ControllerBase
                 return NotFound(new { error = $"Trace session '{sessionName}' not found" });
             }
 
-            // Get trace status from Extended Events
-            var isRunning = await _traceManager.IsTraceRunningAsync(sessionName);
+            // Use TraceManager's comprehensive status checking
+            var traceStatus = await _traceManager.GetTraceStatusAsync(session.SessionId);
 
             return Ok(new TraceSessionStatus
             {
                 SessionId = session.SessionId,
                 SessionName = session.SessionName,
                 DatabaseName = session.DatabaseName,
-                Status = new TraceStatus { State = isRunning ? TraceStatus.Running : TraceStatus.Stopped },
+                Status = new TraceStatus { State = traceStatus.State },
                 StartTime = session.StartTime,
                 EndTime = session.EndTime,
-                EventCount = await _traceDataProvider.GetTraceEventCountAsync(session.SessionId),
+                EventCount = traceStatus.EventCount,
                 Configuration = session.Configuration
             });
         }
@@ -244,9 +242,7 @@ public class TraceController : ControllerBase
                 return NotFound($"Trace session '{request.SessionName}' not found");
             }
 
-            var exportPath = await _traceManager.ExportTraceDataAsync(
-                session.SessionId,
-                request.TraceConnectionString);
+            var exportPath = await _traceManager.ExportTraceDataAsync(session.SessionId, $"trace_export_{session.SessionId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json");
 
             return Ok(new TraceApiResult
             {
@@ -350,7 +346,6 @@ public class StartTraceRequest
 {
     public string SessionName { get; set; } = string.Empty;
     public string DatabaseName { get; set; } = string.Empty;
-    public string ConnectionString { get; set; } = string.Empty;
     public int? MaxFileSize { get; set; }
     public int? MaxFiles { get; set; }
     public List<string>? EventsToCapture { get; set; }
@@ -365,7 +360,6 @@ public class StopTraceRequest
 public class ExportTraceRequest
 {
     public string SessionName { get; set; } = string.Empty;
-    public string TraceConnectionString { get; set; } = string.Empty;
 }
 
 public class TraceApiResult

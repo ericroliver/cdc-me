@@ -6,6 +6,12 @@ using cdc_api.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure URLs to accept connections on any IP address when not specified
+if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")))
+{
+    builder.WebHost.UseUrls("http://0.0.0.0:5000", "https://0.0.0.0:5001");
+}
+
 // Add services to the container.
 
 builder.Services.AddControllers();

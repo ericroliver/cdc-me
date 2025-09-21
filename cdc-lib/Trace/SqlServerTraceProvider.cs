@@ -25,9 +25,9 @@ namespace Softbase.Cdc.Trace
         public async Task<TraceSession> CreateSessionAsync(TraceConfiguration config)
         {
             const string insertSql = @"
-                INSERT INTO [TraceSessions] ([SessionName], [TestDatabase], [TestConnectionString], [SnapshotName], [Description], [Configuration])
+                INSERT INTO [TraceSessions] ([SessionName], [TestDatabase], [SnapshotName], [Description], [Configuration])
                 OUTPUT INSERTED.[SessionId], INSERTED.[StartTime], INSERTED.[Status], INSERTED.[CreatedBy]
-                VALUES (@sessionName, @testDatabase, @testConnectionString, @snapshotName, @description, @configuration)";
+                VALUES (@sessionName, @testDatabase, @snapshotName, @description, @configuration)";
 
             using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
@@ -35,7 +35,6 @@ namespace Softbase.Cdc.Trace
             using var command = new SqlCommand(insertSql, connection);
             command.Parameters.AddWithValue("@sessionName", config.SessionName);
             command.Parameters.AddWithValue("@testDatabase", config.DatabaseName);
-            command.Parameters.AddWithValue("@testConnectionString", ""); // Will be set by caller
             command.Parameters.AddWithValue("@snapshotName", (object?)null ?? DBNull.Value);
             command.Parameters.AddWithValue("@description", config.Description ?? "");
             command.Parameters.AddWithValue("@configuration", JsonConvert.SerializeObject(config));
@@ -48,7 +47,6 @@ namespace Softbase.Cdc.Trace
                     SessionId = reader.GetGuid(0),
                     SessionName = config.SessionName,
                     TestDatabase = config.DatabaseName,
-                    TestConnectionString = "",
                     SnapshotName = null,
                     StartTime = reader.GetDateTime(1),
                     EndTime = null,
@@ -65,9 +63,9 @@ namespace Softbase.Cdc.Trace
         public async Task<TraceSession> GetSessionAsync(Guid sessionId)
         {
             const string selectSql = @"
-                SELECT [SessionId], [SessionName], [TestDatabase], [TestConnectionString], [SnapshotName], 
+                SELECT [SessionId], [SessionName], [TestDatabase], [SnapshotName],
                        [StartTime], [EndTime], [Status], [CreatedBy], [Description], [Configuration]
-                FROM [TraceSessions] 
+                FROM [TraceSessions]
                 WHERE [SessionId] = @sessionId";
 
             using var connection = new SqlConnection(_connectionString);
@@ -88,9 +86,9 @@ namespace Softbase.Cdc.Trace
         public async Task<TraceSession> GetSessionByNameAsync(string sessionName)
         {
             const string selectSql = @"
-                SELECT [SessionId], [SessionName], [TestDatabase], [TestConnectionString], [SnapshotName], 
+                SELECT [SessionId], [SessionName], [TestDatabase], [SnapshotName],
                        [StartTime], [EndTime], [Status], [CreatedBy], [Description], [Configuration]
-                FROM [TraceSessions] 
+                FROM [TraceSessions]
                 WHERE [SessionName] = @sessionName";
 
             using var connection = new SqlConnection(_connectionString);
@@ -111,9 +109,9 @@ namespace Softbase.Cdc.Trace
         public async Task<IEnumerable<TraceSession>> GetActiveSessionsAsync()
         {
             const string selectSql = @"
-                SELECT [SessionId], [SessionName], [TestDatabase], [TestConnectionString], [SnapshotName], 
+                SELECT [SessionId], [SessionName], [TestDatabase], [SnapshotName],
                        [StartTime], [EndTime], [Status], [CreatedBy], [Description], [Configuration]
-                FROM [TraceSessions] 
+                FROM [TraceSessions]
                 WHERE [Status] = 'Active'
                 ORDER BY [StartTime] DESC";
 
@@ -135,9 +133,8 @@ namespace Softbase.Cdc.Trace
         public async Task UpdateSessionAsync(TraceSession session)
         {
             const string updateSql = @"
-                UPDATE [TraceSessions] 
-                SET [TestConnectionString] = @testConnectionString,
-                    [SnapshotName] = @snapshotName,
+                UPDATE [TraceSessions]
+                SET [SnapshotName] = @snapshotName,
                     [EndTime] = @endTime,
                     [Status] = @status,
                     [Description] = @description,
@@ -149,7 +146,6 @@ namespace Softbase.Cdc.Trace
 
             using var command = new SqlCommand(updateSql, connection);
             command.Parameters.AddWithValue("@sessionId", session.SessionId);
-            command.Parameters.AddWithValue("@testConnectionString", session.TestConnectionString ?? "");
             command.Parameters.AddWithValue("@snapshotName", (object?)session.SnapshotName ?? DBNull.Value);
             command.Parameters.AddWithValue("@endTime", (object?)session.EndTime ?? DBNull.Value);
             command.Parameters.AddWithValue("@status", session.Status);
@@ -175,12 +171,12 @@ namespace Softbase.Cdc.Trace
         public async Task<long> SaveTraceEventAsync(TraceEvent traceEvent)
         {
             const string insertSql = @"
-                INSERT INTO [TraceEvents] ([SessionId], [EventTime], [EventName], [DatabaseName], [LoginName], 
-                                         [ApplicationName], [HostName], [SPID], [Duration], [CpuTime], [Reads], [Writes], 
-                                         [SqlText], [ExecutionOrder], [IsReplayable])
+                INSERT INTO [TraceEvents] ([SessionId], [EventTime], [EventName], [DatabaseName], [LoginName],
+                                         [ApplicationName], [HostName], [SPID], [Duration], [CpuTime], [Reads], [Writes],
+                                         [SqlText], [TsqlStack], [PlanHandle], [RequestId], [ClientConnectionId], [TransactionId], [Statement], [ExecutionOrder], [IsReplayable])
                 OUTPUT INSERTED.[EventId]
-                VALUES (@sessionId, @eventTime, @eventName, @databaseName, @loginName, @applicationName, 
-                        @hostName, @spid, @duration, @cpuTime, @reads, @writes, @sqlText, @executionOrder, @isReplayable)";
+                VALUES (@sessionId, @eventTime, @eventName, @databaseName, @loginName, @applicationName,
+                        @hostName, @spid, @duration, @cpuTime, @reads, @writes, @sqlText, @tsqlStack, @planHandle, @requestId, @clientConnectionId, @transactionId, @statement, @executionOrder, @isReplayable)";
 
             using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
@@ -199,6 +195,12 @@ namespace Softbase.Cdc.Trace
             command.Parameters.AddWithValue("@reads", (object?)traceEvent.Reads ?? DBNull.Value);
             command.Parameters.AddWithValue("@writes", (object?)traceEvent.Writes ?? DBNull.Value);
             command.Parameters.AddWithValue("@sqlText", (object?)traceEvent.SqlText ?? DBNull.Value);
+            command.Parameters.AddWithValue("@tsqlStack", (object?)traceEvent.TsqlStack ?? DBNull.Value);
+            command.Parameters.AddWithValue("@planHandle", (object?)traceEvent.PlanHandle ?? DBNull.Value);
+            command.Parameters.AddWithValue("@requestId", (object?)traceEvent.RequestId ?? DBNull.Value);
+            command.Parameters.AddWithValue("@clientConnectionId", (object?)traceEvent.ClientConnectionId ?? DBNull.Value);
+            command.Parameters.AddWithValue("@transactionId", (object?)traceEvent.TransactionId ?? DBNull.Value);
+            command.Parameters.AddWithValue("@statement", (object?)traceEvent.Statement ?? DBNull.Value);
             command.Parameters.AddWithValue("@executionOrder", traceEvent.ExecutionOrder);
             command.Parameters.AddWithValue("@isReplayable", traceEvent.IsReplayable);
 
@@ -209,11 +211,11 @@ namespace Softbase.Cdc.Trace
         public async Task<IEnumerable<TraceEvent>> GetTraceEventsAsync(Guid sessionId)
         {
             const string selectSql = @"
-                SELECT [EventId], [SessionId], [EventTime], [EventName], [DatabaseName], [LoginName], 
-                       [ApplicationName], [HostName], [SPID], [Duration], [CpuTime], [Reads], [Writes], 
-                       [SqlText], [ExecutionOrder], [IsReplayable]
-                FROM [TraceEvents] 
-                WHERE [SessionId] = @sessionId 
+                SELECT [EventId], [SessionId], [EventTime], [EventName], [DatabaseName], [LoginName],
+                       [ApplicationName], [HostName], [SPID], [Duration], [CpuTime], [Reads], [Writes],
+                       [SqlText], [TsqlStack], [PlanHandle], [RequestId], [ClientConnectionId], [TransactionId], [Statement], [ExecutionOrder], [IsReplayable]
+                FROM [TraceEvents]
+                WHERE [SessionId] = @sessionId
                 ORDER BY [ExecutionOrder]";
 
             using var connection = new SqlConnection(_connectionString);
@@ -236,11 +238,11 @@ namespace Softbase.Cdc.Trace
         public async Task<IEnumerable<TraceEvent>> GetTraceEventsAsync(Guid sessionId, int skip, int take)
         {
             const string selectSql = @"
-                SELECT [EventId], [SessionId], [EventTime], [EventName], [DatabaseName], [LoginName], 
-                       [ApplicationName], [HostName], [SPID], [Duration], [CpuTime], [Reads], [Writes], 
-                       [SqlText], [ExecutionOrder], [IsReplayable]
-                FROM [TraceEvents] 
-                WHERE [SessionId] = @sessionId 
+                SELECT [EventId], [SessionId], [EventTime], [EventName], [DatabaseName], [LoginName],
+                       [ApplicationName], [HostName], [SPID], [Duration], [CpuTime], [Reads], [Writes],
+                       [SqlText], [TsqlStack], [PlanHandle], [RequestId], [ClientConnectionId], [TransactionId], [Statement], [ExecutionOrder], [IsReplayable]
+                FROM [TraceEvents]
+                WHERE [SessionId] = @sessionId
                 ORDER BY [ExecutionOrder]
                 OFFSET @skip ROWS FETCH NEXT @take ROWS ONLY";
 
@@ -506,7 +508,6 @@ namespace Softbase.Cdc.Trace
                 SessionId = reader.GetGuid(0),
                 SessionName = reader.GetString(1),
                 TestDatabase = reader.GetString(2),
-                TestConnectionString = reader.GetString(3),
                 SnapshotName = reader.IsDBNull(4) ? null : reader.GetString(4),
                 StartTime = reader.GetDateTime(5),
                 EndTime = reader.IsDBNull(6) ? null : reader.GetDateTime(6),
@@ -535,8 +536,14 @@ namespace Softbase.Cdc.Trace
                 Reads = reader.IsDBNull(11) ? null : reader.GetInt64(11),
                 Writes = reader.IsDBNull(12) ? null : reader.GetInt64(12),
                 SqlText = reader.IsDBNull(13) ? null : reader.GetString(13),
-                ExecutionOrder = reader.GetInt64(14),
-                IsReplayable = reader.GetBoolean(15)
+                TsqlStack = reader.IsDBNull(14) ? null : reader.GetString(14),
+                PlanHandle = reader.IsDBNull(15) ? null : (byte[])reader.GetValue(15),
+                RequestId = reader.IsDBNull(16) ? null : reader.GetInt32(16),
+                ClientConnectionId = reader.IsDBNull(17) ? null : reader.GetGuid(17),
+                TransactionId = reader.IsDBNull(18) ? null : reader.GetInt64(18),
+                Statement = reader.IsDBNull(19) ? null : reader.GetString(19),
+                ExecutionOrder = reader.GetInt64(20),
+                IsReplayable = reader.GetBoolean(21)
             };
         }
 

@@ -15,7 +15,6 @@ namespace Softbase.Cdc.Models
         public string Description { get; set; } = string.Empty;
 
         // API compatibility properties
-        public string ConnectionString { get; set; } = string.Empty;
         public int MaxFileSize { get; set; } = 100;
         public int MaxFiles { get; set; } = 5;
         public List<string> EventsToCapture { get; set; } = new() { "sql_statement_completed" };
@@ -74,7 +73,6 @@ namespace Softbase.Cdc.Models
         public Guid SessionId { get; set; }
         public string SessionName { get; set; } = string.Empty;
         public string TestDatabase { get; set; } = string.Empty;
-        public string TestConnectionString { get; set; } = string.Empty;
         public string? SnapshotName { get; set; }
         public DateTime StartTime { get; set; }
         public DateTime? EndTime { get; set; }
@@ -103,6 +101,12 @@ namespace Softbase.Cdc.Models
         public long? Reads { get; set; }
         public long? Writes { get; set; }
         public string? SqlText { get; set; }
+        public string? TsqlStack { get; set; }
+        public byte[]? PlanHandle { get; set; }
+        public int? RequestId { get; set; }
+        public Guid? ClientConnectionId { get; set; }
+        public long? TransactionId { get; set; }
+        public string? Statement { get; set; }
         public long ExecutionOrder { get; set; }
         public bool IsReplayable { get; set; } = true;
     }

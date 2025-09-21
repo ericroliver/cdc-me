@@ -32,7 +32,6 @@ CREATE TABLE trace_sessions (
     session_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_name VARCHAR(255) NOT NULL UNIQUE,
     test_database VARCHAR(128) NOT NULL,
-    test_connection_string VARCHAR(1000) NOT NULL,
     snapshot_name VARCHAR(128),
     start_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     end_time TIMESTAMP WITH TIME ZONE,

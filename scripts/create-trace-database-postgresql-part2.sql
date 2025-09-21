@@ -1,38 +1,11 @@
--- Create trace database and schema for PostgreSQL
+-- Create trace database schema for PostgreSQL - PART 2
 --
 -- USAGE INSTRUCTIONS:
--- 1. Connect to your PostgreSQL server using the 'postgres' database
--- 2. Run the CREATE DATABASE section of this script
--- 3. Connect to the newly created 'cdcme' database
--- 4. Run the rest of this script to create tables and schema
+-- 1. Make sure you have already run create-trace-database-postgresql-part1.sql
+-- 2. Connect to the 'cdcme' database (NOT the 'postgres' database)
+-- 3. Run this script to create the tables and schema
 --
--- IMPORTANT: This script requires a connection string environment variable.
--- Create a .env file in the project root with:
--- POSTGRES_CONNECTION_STRING=Host=your-host;Database=cdcme;Username=your-username;Password=your-password
-
--- ========================================
--- PART 1: CREATE DATABASE (Run while connected to 'postgres' database)
--- ========================================
--- STOP HERE after running this section and connect to 'cdcme' database before continuing
-
-CREATE DATABASE cdcme
-    WITH
-    OWNER = postgres
-    ENCODING = 'UTF8'
-    LC_COLLATE = 'en_US.utf8'
-    LC_CTYPE = 'en_US.utf8'
-    TABLESPACE = pg_default
-    CONNECTION LIMIT = -1;
-
--- ========================================
--- IMPORTANT: Now connect to the 'cdcme' database before running the rest!
--- In DBeaver: Right-click server -> Create -> Connection -> Use 'cdcme' as database name
--- In psql: \c cdcme
--- ========================================
-
--- ========================================
--- PART 2: CREATE TABLES AND SCHEMA (Run while connected to 'cdcme' database)
--- ========================================
+-- IMPORTANT: You must be connected to the 'cdcme' database when running this script!
 
 -- Create tables
 CREATE TABLE

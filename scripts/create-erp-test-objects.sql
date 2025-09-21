@@ -550,6 +550,19 @@ BEGIN
     FROM [dbo].[ChartOfAccounts]
     WHERE AccountNumber = '4000'); -- Sales Revenue
         
+        -- Validate that required accounts exist
+        IF @ArAccountId IS NULL
+        BEGIN
+        RAISERROR('Accounts Receivable account (1200) not found in Chart of Accounts.', 16, 1);
+        RETURN;
+    END
+        
+        IF @SalesAccountId IS NULL
+        BEGIN
+        RAISERROR('Sales Revenue account (4000) not found in Chart of Accounts.', 16, 1);
+        RETURN;
+    END
+        
         -- Create GL Transaction Details
         INSERT INTO [dbo].[GlTransactionDetail]
         (

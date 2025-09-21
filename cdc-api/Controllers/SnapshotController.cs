@@ -27,13 +27,12 @@ public class SnapshotController : ControllerBase
     {
         // Validate required fields
         if (string.IsNullOrWhiteSpace(request.DatabaseName) ||
-            string.IsNullOrWhiteSpace(request.SnapshotName) ||
-            string.IsNullOrWhiteSpace(request.ConnectionString))
+            string.IsNullOrWhiteSpace(request.SnapshotName))
         {
             return BadRequest(new SnapshotApiResult
             {
                 Success = false,
-                Message = "Required fields are missing: DatabaseName, SnapshotName, and ConnectionString are all required.",
+                Message = "Required fields are missing: DatabaseName and SnapshotName are required.",
                 SnapshotName = request.SnapshotName,
                 DatabaseName = request.DatabaseName
             });
@@ -46,8 +45,7 @@ public class SnapshotController : ControllerBase
 
             var result = await _snapshotManager.CreateSnapshotAsync(
                 request.DatabaseName,
-                request.SnapshotName,
-                request.ConnectionString);
+                request.SnapshotName);
 
             return Ok(new SnapshotApiResult
             {
@@ -85,9 +83,8 @@ public class SnapshotController : ControllerBase
                 request.SnapshotName, request.DatabaseName);
 
             var result = await _snapshotManager.RestoreSnapshotAsync(
-                request.DatabaseName,
                 request.SnapshotName,
-                request.ConnectionString);
+                request.DatabaseName);
 
             return Ok(new SnapshotApiResult
             {
@@ -115,18 +112,16 @@ public class SnapshotController : ControllerBase
     /// List all snapshots for a database
     /// </summary>
     /// <param name="databaseName">Database name</param>
-    /// <param name="connectionString">Connection string</param>
     /// <returns>List of snapshots</returns>
     [HttpGet("{databaseName}/snapshots")]
     public async Task<ActionResult<List<SnapshotInfo>>> ListSnapshots(
-        string databaseName,
-        [FromQuery] string connectionString)
+        string databaseName)
     {
         try
         {
             _logger.LogInformation("Listing snapshots for database {DatabaseName}", databaseName);
 
-            var snapshots = await _snapshotManager.ListSnapshotsAsync(databaseName, connectionString);
+            var snapshots = await _snapshotManager.ListSnapshotsAsync(databaseName);
 
             return Ok(snapshots);
         }
@@ -142,20 +137,18 @@ public class SnapshotController : ControllerBase
     /// </summary>
     /// <param name="databaseName">Database name</param>
     /// <param name="snapshotName">Snapshot name</param>
-    /// <param name="connectionString">Connection string</param>
     /// <returns>Snapshot information</returns>
     [HttpGet("{databaseName}/snapshots/{snapshotName}")]
     public async Task<ActionResult<SnapshotInfo>> GetSnapshotInfo(
         string databaseName,
-        string snapshotName,
-        [FromQuery] string connectionString)
+        string snapshotName)
     {
         try
         {
             _logger.LogInformation("Getting info for snapshot {SnapshotName} of database {DatabaseName}",
                 snapshotName, databaseName);
 
-            var snapshots = await _snapshotManager.ListSnapshotsAsync(databaseName, connectionString);
+            var snapshots = await _snapshotManager.ListSnapshotsAsync(databaseName);
             var snapshot = snapshots.FirstOrDefault(s => s.SnapshotName == snapshotName);
 
             if (snapshot == null)
@@ -185,8 +178,7 @@ public class SnapshotController : ControllerBase
             _logger.LogInformation("Deleting snapshot {SnapshotName}", request.SnapshotName);
 
             var result = await _snapshotManager.DropSnapshotAsync(
-                request.SnapshotName,
-                request.ConnectionString);
+                request.SnapshotName);
 
             return Ok(new SnapshotApiResult
             {
@@ -214,20 +206,17 @@ public class CreateSnapshotRequest
 {
     public string DatabaseName { get; set; } = string.Empty;
     public string SnapshotName { get; set; } = string.Empty;
-    public string ConnectionString { get; set; } = string.Empty;
 }
 
 public class RestoreSnapshotRequest
 {
     public string DatabaseName { get; set; } = string.Empty;
     public string SnapshotName { get; set; } = string.Empty;
-    public string ConnectionString { get; set; } = string.Empty;
 }
 
 public class DeleteSnapshotRequest
 {
     public string SnapshotName { get; set; } = string.Empty;
-    public string ConnectionString { get; set; } = string.Empty;
 }
 
 public class SnapshotApiResult

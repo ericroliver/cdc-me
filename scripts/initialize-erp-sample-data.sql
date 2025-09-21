@@ -12,9 +12,6 @@
 -- - Sample Sales Orders with line items
 -- =============================================
 
-USE [cdctest];
-GO
-
 PRINT 'Starting ERP Sample Data Initialization...';
 GO
 
