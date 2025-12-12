@@ -3,6 +3,7 @@ using Softbase;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -130,7 +131,7 @@ public class CdcCaptureComparer
 
                     try
                     {
-                        var tableRecords = JsonSerializer.Deserialize<List<Dictionary<string, object>>>(captureDataJson, JsonOptions);
+                        var tableRecords = DeserializeCaptureData(captureDataJson);
                         if (tableRecords != null)
                         {
                             captureData.TableData[tableName] = tableRecords;
@@ -151,6 +152,18 @@ public class CdcCaptureComparer
             _logger.LogError(ex, "Failed to retrieve capture data for {CaptureName}", captureName);
             return null;
         }
+    }
+
+    /// <summary>
+    /// Deserializes capture data JSON with trimming support
+    /// </summary>
+    /// <param name="json">JSON string to deserialize</param>
+    /// <returns>Deserialized list of dictionaries</returns>
+    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code",
+        Justification = "Dictionary<string, object> is used for dynamic CDC data that cannot be statically analyzed. The types are preserved at runtime.")]
+    private static List<Dictionary<string, object>>? DeserializeCaptureData(string json)
+    {
+        return JsonSerializer.Deserialize<List<Dictionary<string, object>>>(json, JsonOptions);
     }
 
     /// <summary>
