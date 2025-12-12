@@ -435,7 +435,7 @@ namespace Softbase.Cdc.Trace
                         events.Add(@"
                             ADD EVENT sqlserver.sql_statement_completed(
                                 ACTION(sqlserver.client_app_name, sqlserver.client_hostname, 
-                                       sqlserver.database_name, sqlserver.session_id, sqlserver.username, sqlserver.sql_text, sqlserver.tsql_stack, sqlserver.plan_handle, sqlserver.session_id, sqlserver.request_id, sqlserver.client_connection_id, sqlserver.transaction_id)
+                                       sqlserver.database_name, sqlserver.session_id, sqlserver.username, sqlserver.sql_text, sqlserver.tsql_stack, sqlserver.plan_handle, sqlserver.request_id, sqlserver.client_connection_id, sqlserver.transaction_id)
                                 WHERE ([sqlserver].[database_name] = N'" + config.DatabaseName + @"')
                             )");
                         break;
