@@ -104,7 +104,7 @@ namespace Softbase.Cdc
                     {
                         var models = new List<IDictionary<string, object>>();
                         var changesByKey = new Dictionary<string, List<IDictionary<string, object>>>();
-                        
+
                         // First pass: collect all changes grouped by primary key
                         while (reader.Read())
                         {
@@ -116,7 +116,7 @@ namespace Softbase.Cdc
                             var pkValue = GetPrimaryKeyValue(model, table);
                             if (!changesByKey.ContainsKey(pkValue))
                                 changesByKey[pkValue] = new List<IDictionary<string, object>>();
-                            
+
                             changesByKey[pkValue].Add(model);
                         }
 
@@ -131,7 +131,7 @@ namespace Softbase.Cdc
                                     return Convert.ToHexString(bytes);
                                 return lsn?.ToString() ?? "";
                             }).ToList();
-                            
+
                             var processedChange = ProcessChangesForRecord(changes, table);
                             if (processedChange != null)
                                 models.Add(processedChange);
@@ -203,7 +203,7 @@ namespace Softbase.Cdc
             // Extract the first key column name from index_keys (format like "column1, column2")
             var keyColumn = pkIndex.IndexKeys.Split(',')[0].Trim();
             var pkValue = record.ContainsKey(keyColumn) ? record[keyColumn]?.ToString() : "null";
-            
+
             return pkValue ?? "null";
         }
 
@@ -214,12 +214,12 @@ namespace Softbase.Cdc
 
             var result = new Dictionary<string, object>();
             var lastChange = changes.Last();
-            
+
             // Add metadata
             result["__$operation"] = lastChange["__$operation"];
             result["__$start_lsn"] = lastChange["__$start_lsn"];
             result["__$table"] = $"{table.Schema}.{table.Name}";
-            
+
             // Get primary key for identification
             var pkIndex = table.Indexes.FirstOrDefault(i => i.IndexType.Contains("primary"));
             if (pkIndex != null)
@@ -230,7 +230,7 @@ namespace Softbase.Cdc
             }
 
             var operation = Convert.ToInt32(lastChange["__$operation"]);
-            
+
             if (operation == 1) // Insert
             {
                 // For inserts, capture all non-null values
@@ -258,7 +258,7 @@ namespace Softbase.Cdc
                 // For updates, we need to find the before and after records
                 var beforeRecord = changes.FirstOrDefault(c => Convert.ToInt32(c["__$operation"]) == 3);
                 var afterRecord = changes.FirstOrDefault(c => Convert.ToInt32(c["__$operation"]) == 4);
-                
+
                 if (beforeRecord != null && afterRecord != null)
                 {
                     // Compare fields to find what actually changed
@@ -266,10 +266,10 @@ namespace Softbase.Cdc
                     {
                         if (key.StartsWith("__$"))
                             continue;
-                            
+
                         var oldValue = beforeRecord.ContainsKey(key) ? beforeRecord[key] : null;
                         var newValue = afterRecord[key];
-                        
+
                         // Check if the value actually changed
                         if (!AreValuesEqual(oldValue, newValue))
                         {
@@ -294,7 +294,7 @@ namespace Softbase.Cdc
                 return true;
             if (value1 == DBNull.Value || value2 == DBNull.Value)
                 return false;
-                
+
             return value1.Equals(value2);
         }
 

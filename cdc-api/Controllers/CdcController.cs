@@ -592,7 +592,7 @@ public class CdcController : ControllerBase
 
             // Create connection to trace database
             var traceDac = _connectionFactory.CreateDac(DatabaseRole.CdcMeDatabase, _logger);
-            
+
             // Create comparer and perform comparison
             var comparer = new CdcCaptureComparer(traceDac, _logger);
             var cdcRequest = new Softbase.Cdc.CompareCapturesRequest

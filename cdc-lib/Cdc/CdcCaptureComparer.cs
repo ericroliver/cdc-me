@@ -71,7 +71,7 @@ public class CdcCaptureComparer
             var commonTables = baselineData.TableData.Keys.Intersect(testData.TableData.Keys);
             foreach (var tableName in commonTables)
             {
-                CompareTableData(tableName, baselineData.TableData[tableName], testData.TableData[tableName], 
+                CompareTableData(tableName, baselineData.TableData[tableName], testData.TableData[tableName],
                     failures, request.FieldsToIgnore, request.IgnoreLsnDifferences);
                 summary.TablesCompared++;
             }
@@ -127,7 +127,7 @@ public class CdcCaptureComparer
                 {
                     var tableName = reader.GetString(reader.GetOrdinal("table_name"));
                     var captureDataJson = reader.GetString(reader.GetOrdinal("capture_data"));
-                    
+
                     try
                     {
                         var tableRecords = JsonSerializer.Deserialize<List<Dictionary<string, object>>>(captureDataJson, JsonOptions);
@@ -285,7 +285,7 @@ public class CdcCaptureComparer
         List<string>? fieldsToIgnore, bool ignoreLsnDifferences)
     {
         var fieldsToIgnoreSet = new HashSet<string>(fieldsToIgnore ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
-        
+
         // Add standard CDC fields to ignore if specified
         if (ignoreLsnDifferences)
         {
@@ -300,7 +300,7 @@ public class CdcCaptureComparer
         }
 
         // Compare operation types
-        if (baselineRecord.TryGetValue("__$operation", out var baselineOp) && 
+        if (baselineRecord.TryGetValue("__$operation", out var baselineOp) &&
             testRecord.TryGetValue("__$operation", out var testOp))
         {
             if (!AreValuesEqual(baselineOp, testOp))
@@ -388,21 +388,21 @@ public class CdcCaptureComparer
     /// <summary>
     /// Updates summary statistics based on comparison results
     /// </summary>
-    private void UpdateSummaryStatistics(ComparisonSummary summary, CaptureData baseline, CaptureData test, 
+    private void UpdateSummaryStatistics(ComparisonSummary summary, CaptureData baseline, CaptureData test,
         List<CaptureComparisonFailure> failures)
     {
         summary.TotalFailures = failures.Count;
         summary.TablesWithFailures = failures.Select(f => f.TableName).Distinct().Count();
-        
+
         // Count total records and fields compared
         var commonTables = baseline.TableData.Keys.Intersect(test.TableData.Keys);
         foreach (var tableName in commonTables)
         {
             var baselineRecords = baseline.TableData[tableName];
             var testRecords = test.TableData[tableName];
-            
+
             summary.RecordsCompared += Math.Max(baselineRecords.Count, testRecords.Count);
-            
+
             // Estimate fields compared (approximate)
             if (baselineRecords.Any())
             {
