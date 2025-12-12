@@ -218,7 +218,7 @@ namespace Softbase.Cdc.Trace
                 return new SnapshotResult
                 {
                     Success = false,
-                    Message = $"Failed to restore snapshot: {ex.Message}",
+                    Message = $"Failed to drop snapshot: {ex.Message}",
                     SnapshotName = snapshotName,
                     ErrorDetails = ex.ToString()
                 };
@@ -277,7 +277,7 @@ namespace Softbase.Cdc.Trace
                     d.name AS SnapshotName,
                     sd.name AS SourceDatabase,
                     d.create_date AS CreatedTime,
-                    ISNULL(SUM(mf.size * 8 * 1024), 0) AS SizeInBytes,
+                    CAST(ISNULL(SUM(mf.size * 8 * 1024), 0) AS BIGINT) AS SizeInBytes,
                     d.state_desc AS Status
                 FROM sys.databases d
                 LEFT JOIN sys.databases sd ON d.source_database_id = sd.database_id

@@ -136,21 +136,14 @@ public class SnapshotControllerTests : IClassFixture<WebApplicationFactory<Progr
     public async Task DeleteSnapshot_ValidRequest_ReturnsOk()
     {
         // Arrange
-        var request = new DeleteSnapshotRequest
-        {
-            SnapshotName = "TestSnapshot"
-        };
+        var snapshotName = "TestSnapshot";
 
         // Act
-        // Note: This test may fail due to ASP.NET Core not supporting DELETE with body by default
-        // This is a known limitation and the test documents the expected behavior
-        var json = JsonSerializer.Serialize(request);
-        var requestMessage = new HttpRequestMessage(HttpMethod.Delete, "/api/snapshot");
-        requestMessage.Content = new StringContent(json, Encoding.UTF8, "application/json");
-        var response = await _client.SendAsync(requestMessage);
+        // Using the new route-based DELETE endpoint
+        var response = await _client.DeleteAsync($"/api/snapshot/{snapshotName}");
 
         // Assert
-        // Expecting UnsupportedMediaType (415) due to DELETE with body limitation
-        response.StatusCode.Should().Be(HttpStatusCode.UnsupportedMediaType);
+        // Expecting OK (200) for successful deletion with the new endpoint design
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 }

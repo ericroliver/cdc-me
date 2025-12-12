@@ -233,6 +233,239 @@ public class CdcControllerTests
         // Assert
         Assert.Empty(result);
     }
+
+    /// <summary>
+    /// Test that CompareCapturesAsync returns BadRequest for invalid model state
+    /// </summary>
+    [Fact]
+    public async Task CompareCapturesAsync_InvalidModelState_ReturnsBadRequest()
+    {
+        // Arrange
+        var controller = new CdcController(_mockLogger.Object, _mockConnectionFactory.Object);
+        controller.ModelState.AddModelError("BaselineCaptureName", "Required");
+
+        var request = new CompareCapturesRequest();
+
+        // Act
+        var result = await controller.CompareCapturesAsync(request);
+
+        // Assert
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    /// <summary>
+    /// Test that CompareCapturesAsync validates required fields
+    /// </summary>
+    [Fact]
+    public async Task CompareCapturesAsync_MissingRequiredFields_ReturnsBadRequest()
+    {
+        // Arrange
+        var controller = new CdcController(_mockLogger.Object, _mockConnectionFactory.Object);
+        var request = new CompareCapturesRequest
+        {
+            BaselineCaptureName = "", // Empty required field
+            TestCaptureName = "test"
+        };
+
+        // Manually add model error to simulate validation
+        controller.ModelState.AddModelError("BaselineCaptureName", "The BaselineCaptureName field is required.");
+
+        // Act
+        var result = await controller.CompareCapturesAsync(request);
+
+        // Assert
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    /// <summary>
+    /// Test that CompareCapturesAsync request model has correct structure
+    /// </summary>
+    [Fact]
+    public void CompareCapturesRequest_HasCorrectStructure()
+    {
+        // Arrange & Act
+        var request = new CompareCapturesRequest
+        {
+            BaselineCaptureName = "baseline",
+            TestCaptureName = "test",
+            FieldsToIgnore = new List<string> { "created_date" },
+            IgnoreLsnDifferences = true
+        };
+
+        // Assert
+        Assert.Equal("baseline", request.BaselineCaptureName);
+        Assert.Equal("test", request.TestCaptureName);
+        Assert.NotNull(request.FieldsToIgnore);
+        Assert.Single(request.FieldsToIgnore);
+        Assert.True(request.IgnoreLsnDifferences);
+    }
+
+    /// <summary>
+    /// Test that CompareCapturesResponse model has correct structure
+    /// </summary>
+    [Fact]
+    public void CompareCapturesResponse_HasCorrectStructure()
+    {
+        // Arrange & Act
+        var response = new CompareCapturesResponse
+        {
+            IsMatch = false,
+            Failures = new List<CaptureComparisonFailure>
+            {
+                new()
+                {
+                    TableName = "Orders",
+                    FailureType = "FieldMismatch",
+                    PrimaryKey = "123",
+                    FieldName = "amount",
+                    BaselineValue = 100,
+                    TestValue = 200,
+                    Description = "Amount mismatch"
+                }
+            },
+            Summary = new cdc_api.Models.ComparisonSummary
+            {
+                TablesCompared = 1,
+                RecordsCompared = 10,
+                FieldsCompared = 50,
+                TotalFailures = 1,
+                TablesWithFailures = 1,
+                ComparisonDuration = TimeSpan.FromSeconds(1)
+            },
+            Errors = new List<string>()
+        };
+
+        // Assert
+        Assert.False(response.IsMatch);
+        Assert.Single(response.Failures);
+        Assert.Equal("Orders", response.Failures[0].TableName);
+        Assert.Equal("FieldMismatch", response.Failures[0].FailureType);
+        Assert.NotNull(response.Summary);
+        Assert.Equal(1, response.Summary.TablesCompared);
+        Assert.Empty(response.Errors);
+    }
+
+    /// <summary>
+    /// Test that CompareCapturesRequest supports optional FieldsToIgnore
+    /// </summary>
+    [Fact]
+    public void CompareCapturesRequest_FieldsToIgnore_IsOptional()
+    {
+        // Arrange & Act
+        var request = new CompareCapturesRequest
+        {
+            BaselineCaptureName = "baseline",
+            TestCaptureName = "test"
+            // FieldsToIgnore not set
+        };
+
+        // Assert
+        Assert.Null(request.FieldsToIgnore);
+    }
+
+    /// <summary>
+    /// Test that CompareCapturesRequest has correct default for IgnoreLsnDifferences
+    /// </summary>
+    [Fact]
+    public void CompareCapturesRequest_IgnoreLsnDifferences_DefaultsToTrue()
+    {
+        // Arrange & Act
+        var request = new CompareCapturesRequest();
+
+        // Assert
+        Assert.True(request.IgnoreLsnDifferences);
+    }
+
+    /// <summary>
+    /// Test that CaptureComparisonFailure supports all failure types
+    /// </summary>
+    [Theory]
+    [InlineData("MissingTable")]
+    [InlineData("ExtraTable")]
+    [InlineData("MissingRecord")]
+    [InlineData("ExtraRecord")]
+    [InlineData("FieldMismatch")]
+    [InlineData("OperationMismatch")]
+    [InlineData("RecordCountMismatch")]
+    public void CaptureComparisonFailure_SupportsAllFailureTypes(string failureType)
+    {
+        // Arrange & Act
+        var failure = new CaptureComparisonFailure
+        {
+            FailureType = failureType,
+            TableName = "TestTable",
+            Description = $"Test {failureType}"
+        };
+
+        // Assert
+        Assert.Equal(failureType, failure.FailureType);
+        Assert.Equal("TestTable", failure.TableName);
+    }
+
+    /// <summary>
+    /// Test that ComparisonSummary initializes with zero values
+    /// </summary>
+    [Fact]
+    public void ComparisonSummary_InitializesWithZeroValues()
+    {
+        // Arrange & Act
+        var summary = new cdc_api.Models.ComparisonSummary();
+
+        // Assert
+        Assert.Equal(0, summary.TablesCompared);
+        Assert.Equal(0, summary.RecordsCompared);
+        Assert.Equal(0, summary.FieldsCompared);
+        Assert.Equal(0, summary.TotalFailures);
+        Assert.Equal(0, summary.TablesWithFailures);
+        Assert.Equal(TimeSpan.Zero, summary.ComparisonDuration);
+    }
+
+    /// <summary>
+    /// Test that CompareCapturesResponse handles empty failures list
+    /// </summary>
+    [Fact]
+    public void CompareCapturesResponse_EmptyFailures_IndicatesMatch()
+    {
+        // Arrange & Act
+        var response = new CompareCapturesResponse
+        {
+            IsMatch = true,
+            Failures = new List<CaptureComparisonFailure>(),
+            Summary = new cdc_api.Models.ComparisonSummary
+            {
+                TablesCompared = 5,
+                RecordsCompared = 100
+            }
+        };
+
+        // Assert
+        Assert.True(response.IsMatch);
+        Assert.Empty(response.Failures);
+        Assert.Equal(5, response.Summary.TablesCompared);
+    }
+
+    /// <summary>
+    /// Test that CompareCapturesResponse can include error messages
+    /// </summary>
+    [Fact]
+    public void CompareCapturesResponse_CanIncludeErrors()
+    {
+        // Arrange & Act
+        var response = new CompareCapturesResponse
+        {
+            IsMatch = false,
+            Errors = new List<string>
+            {
+                "Baseline capture not found",
+                "Database connection failed"
+            }
+        };
+
+        // Assert
+        Assert.False(response.IsMatch);
+        Assert.Equal(2, response.Errors.Count);
+        Assert.Contains("Baseline capture not found", response.Errors);
+    }
 }
 
 /// <summary>
@@ -252,22 +485,7 @@ public static class CdcControllerTestHelper
         List<string>? tablesToInclude,
         List<string>? tablesToExclude)
     {
-        var tables = allTables;
-
-        // Apply include filter if specified
-        if (tablesToInclude != null && tablesToInclude.Any())
-        {
-            var includeSet = new HashSet<string>(tablesToInclude, StringComparer.OrdinalIgnoreCase);
-            tables = tables.Where(t => includeSet.Contains($"{t.Schema}.{t.Name}"));
-        }
-
-        // Apply exclude filter if specified
-        if (tablesToExclude != null && tablesToExclude.Any())
-        {
-            var excludeSet = new HashSet<string>(tablesToExclude, StringComparer.OrdinalIgnoreCase);
-            tables = tables.Where(t => !excludeSet.Contains($"{t.Schema}.{t.Name}"));
-        }
-
-        return tables;
+        // Use the controller's FilterTables method to avoid duplication
+        return CdcController.FilterTables(allTables, tablesToInclude, tablesToExclude);
     }
 }

@@ -489,7 +489,7 @@ namespace Softbase.Cdc.Trace
 
         private TraceSession MapTraceSession(IDataReader reader)
         {
-            var configJson = reader.IsDBNull(10) ? null : reader.GetString(10);
+            var configJson = reader.IsDBNull(9) ? null : reader.GetString(9);
             TraceConfiguration config = null;
             if (!string.IsNullOrEmpty(configJson))
             {
@@ -508,12 +508,12 @@ namespace Softbase.Cdc.Trace
                 SessionId = reader.GetGuid(0),
                 SessionName = reader.GetString(1),
                 TestDatabase = reader.GetString(2),
-                SnapshotName = reader.IsDBNull(4) ? null : reader.GetString(4),
-                StartTime = reader.GetDateTime(5),
-                EndTime = reader.IsDBNull(6) ? null : reader.GetDateTime(6),
-                Status = reader.GetString(7),
-                CreatedBy = reader.GetString(8),
-                Description = reader.IsDBNull(9) ? null : reader.GetString(9),
+                SnapshotName = reader.IsDBNull(3) ? null : reader.GetString(3),
+                StartTime = reader.GetDateTime(4),
+                EndTime = reader.IsDBNull(5) ? null : reader.GetDateTime(5),
+                Status = reader.GetString(6),
+                CreatedBy = reader.GetString(7),
+                Description = reader.IsDBNull(8) ? null : reader.GetString(8),
                 Configuration = config
             };
         }

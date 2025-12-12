@@ -66,7 +66,7 @@ namespace Softbase.Cdc.Trace
             try
             {
                 var session = await _traceProvider.GetSessionAsync(sessionId);
-                var sessionName = $"CDC_Trace_{sessionId:N}";
+                var sessionName = GetExtendedEventsSessionName(sessionId);
 
                 // Export trace data from Extended Events to trace database BEFORE stopping
                 // This is critical because stopping the session clears the ring buffer
@@ -211,7 +211,7 @@ namespace Softbase.Cdc.Trace
                     event_data.value('(action[@name=''request_id'']/value)[1]', 'int') AS request_id,
                     event_data.value('(action[@name=''client_connection_id'']/value)[1]', 'uniqueidentifier') AS client_connection_id,
                     event_data.value('(action[@name=''transaction_id'']/value)[1]', 'bigint') AS transaction_id,
-                    event_data.value('(action[@name=''statement'']/value)[1]', 'nvarchar(max)') AS statement,
+                    event_data.value('(data[@name=''statement'']/value)[1]', 'nvarchar(max)') AS statement,
                     ROW_NUMBER() OVER (ORDER BY event_data.value('(@timestamp)[1]', 'datetime2')) AS execution_order
                 FROM (
                     SELECT CAST(target_data AS XML) AS target_data
@@ -320,7 +320,7 @@ namespace Softbase.Cdc.Trace
                     event_data.value('(action[@name=''request_id'']/value)[1]', 'int') AS request_id,
                     event_data.value('(action[@name=''client_connection_id'']/value)[1]', 'uniqueidentifier') AS client_connection_id,
                     event_data.value('(action[@name=''transaction_id'']/value)[1]', 'bigint') AS transaction_id,
-                    event_data.value('(action[@name=''statement'']/value)[1]', 'nvarchar(max)') AS statement,
+                    event_data.value('(data[@name=''statement'']/value)[1]', 'nvarchar(max)') AS statement,
                     ROW_NUMBER() OVER (ORDER BY event_data.value('(@timestamp)[1]', 'datetime2')) AS execution_order
                 FROM (
                     SELECT CAST(target_data AS XML) AS target_data
@@ -418,16 +418,16 @@ namespace Softbase.Cdc.Trace
                     case "sql_batch_completed":
                         events.Add(@"
                             ADD EVENT sqlserver.sql_batch_completed(
-                                ACTION(sqlserver.client_app_name, sqlserver.client_hostname, 
-                                       sqlserver.database_name, sqlserver.session_id, sqlserver.username, sqlserver.sql_text, sqlserver.tsql_stack, sqlserver.plan_handle, sqlserver.session_id, sqlserver.request_id, sqlserver.client_connection_id, sqlserver.transaction_id)
+                                ACTION(sqlserver.client_app_name, sqlserver.client_hostname,
+                                       sqlserver.database_name, sqlserver.session_id, sqlserver.username, sqlserver.sql_text, sqlserver.tsql_stack, sqlserver.plan_handle, sqlserver.request_id, sqlserver.client_connection_id, sqlserver.transaction_id)
                                 WHERE ([sqlserver].[database_name] = N'" + config.DatabaseName + @"')
                             )");
                         break;
                     case "rpc_completed":
                         events.Add(@"
                             ADD EVENT sqlserver.rpc_completed(
-                                ACTION(sqlserver.client_app_name, sqlserver.client_hostname, 
-                                       sqlserver.database_name, sqlserver.session_id, sqlserver.username, sqlserver.sql_text, sqlserver.tsql_stack, sqlserver.plan_handle, sqlserver.session_id, sqlserver.request_id, sqlserver.client_connection_id, sqlserver.transaction_id)
+                                ACTION(sqlserver.client_app_name, sqlserver.client_hostname,
+                                       sqlserver.database_name, sqlserver.session_id, sqlserver.username, sqlserver.sql_text, sqlserver.tsql_stack, sqlserver.plan_handle, sqlserver.request_id, sqlserver.client_connection_id, sqlserver.transaction_id)
                                 WHERE ([sqlserver].[database_name] = N'" + config.DatabaseName + @"')
                             )");
                         break;

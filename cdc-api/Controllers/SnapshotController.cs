@@ -168,34 +168,38 @@ public class SnapshotController : ControllerBase
     /// <summary>
     /// Delete a snapshot
     /// </summary>
-    /// <param name="request">Snapshot deletion request</param>
+    /// <param name="snapshotName">Name of the snapshot to delete</param>
     /// <returns>Snapshot deletion result</returns>
-    [HttpDelete]
-    public async Task<ActionResult<SnapshotApiResult>> DeleteSnapshot([FromBody] DeleteSnapshotRequest request)
+    [HttpDelete("{snapshotName}")]
+    public async Task<ActionResult<SnapshotApiResult>> DeleteSnapshot(string snapshotName)
     {
+        if (string.IsNullOrWhiteSpace(snapshotName))
+        {
+            return BadRequest("Snapshot name is required");
+        }
+
         try
         {
-            _logger.LogInformation("Deleting snapshot {SnapshotName}", request.SnapshotName);
+            _logger.LogInformation("Deleting snapshot {SnapshotName}", snapshotName);
 
-            var result = await _snapshotManager.DropSnapshotAsync(
-                request.SnapshotName);
+            var result = await _snapshotManager.DropSnapshotAsync(snapshotName);
 
             return Ok(new SnapshotApiResult
             {
                 Success = result.Success,
                 Message = result.Message,
-                SnapshotName = request.SnapshotName,
+                SnapshotName = snapshotName,
                 DeletedAt = DateTime.UtcNow
             });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error deleting snapshot {SnapshotName}", request.SnapshotName);
+            _logger.LogError(ex, "Error deleting snapshot {SnapshotName}", snapshotName);
             return BadRequest(new SnapshotApiResult
             {
                 Success = false,
                 Message = $"Error deleting snapshot: {ex.Message}",
-                SnapshotName = request.SnapshotName
+                SnapshotName = snapshotName
             });
         }
     }

@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using cdc_api.Models;
 using Softbase;
 using Softbase.Cdc;
@@ -38,6 +39,11 @@ public class CdcController : ControllerBase
     [HttpPost("start")]
     public async Task<ActionResult<StartCdcResponse>> StartCdc([FromBody] StartCdcRequest request)
     {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         try
         {
             _logger.LogInformation("Starting CDC for session {SessionName}", request.SessionName);
@@ -130,54 +136,61 @@ public class CdcController : ControllerBase
     [HttpPost("stop")]
     public async Task<ActionResult<StopCdcResponse>> StopCdc([FromBody] StopCdcRequest request)
     {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         try
         {
             _logger.LogInformation("Stopping CDC for session {SessionName}, capture {CaptureName}",
                 request.SessionName, request.CaptureName);
 
-            var response = new StopCdcResponse
-            {
-                SessionName = request.SessionName,
-                CaptureName = request.CaptureName
-            };
-
-            // Create DACs for both databases
             var testDac = _connectionFactory.CreateDac(DatabaseRole.TestDatabase, _logger);
             var cdcMeDac = _connectionFactory.CreateDac(DatabaseRole.CdcMeDatabase, _logger);
 
-            // Step 1: Capture CDC data
-            var allTables = CdcDataUtilities.GetTables(testDac);
-            var cdcData = CdcDataUtilities.BuildProfile(testDac, allTables, _logger);
-
-            _logger.LogDebug("Captured CDC data from {TableCount} tables", cdcData.Count);
-
-            // Step 2: Save captured data to CdcMe database
-            var captureHeaderId = await SaveCdcCaptureAsync(
+            // Perform CDC capture
+            var captureResult = await PerformCdcCaptureAsync(
+                testDac,
                 cdcMeDac,
                 request.SessionName,
                 request.CaptureName,
-                request.CaptureType,
-                cdcData,
-                allTables.Select(t => $"{t.Schema}.{t.Name}").ToList(),
-                new List<string>() // tablesSkipped - we'll enhance this later
-            );
+                request.CaptureType);
 
-            // Step 3: Disable CDC on database
+            // Handle capture failure - still disable CDC
+            if (!captureResult.IsSuccess)
+            {
+                _logger.LogDebug("Disabling CDC on database after capture errors");
+                CdcDataUtilities.DisableCdcOnDatabase(testDac);
+
+                return Ok(new StopCdcResponse
+                {
+                    Success = false,
+                    SessionName = request.SessionName,
+                    CaptureName = request.CaptureName,
+                    Message = $"CDC stopped successfully but data capture failed: {captureResult.ErrorMessage}",
+                    TablesWithChanges = new List<string>(),
+                    TotalRecords = 0
+                });
+            }
+
+            // Disable CDC on database after successful capture
             _logger.LogDebug("Disabling CDC on database");
             CdcDataUtilities.DisableCdcOnDatabase(testDac);
 
-            // Build response
-            var tablesWithChanges = cdcData.Keys.ToList();
-            var totalRecords = cdcData.Values.Sum(tableData => tableData.Count());
-
-            response.Success = true;
-            response.Message = $"CDC data captured and CDC disabled successfully";
-            response.TablesWithChanges = tablesWithChanges;
-            response.TotalRecords = totalRecords;
-            response.CaptureId = captureHeaderId;
+            var response = new StopCdcResponse
+            {
+                Success = true,
+                SessionName = request.SessionName,
+                CaptureName = request.CaptureName,
+                Message = "CDC data captured and CDC disabled successfully",
+                TablesWithChanges = captureResult.TablesWithChanges,
+                TotalRecords = captureResult.TotalRecords,
+                CaptureId = captureResult.CaptureId
+            };
 
             _logger.LogInformation("CDC stopped successfully for session {SessionName}. Captured {RecordCount} records from {TableCount} tables",
-                request.SessionName, totalRecords, tablesWithChanges.Count);
+                request.SessionName, captureResult.TotalRecords, captureResult.TablesWithChanges.Count);
 
             return Ok(response);
         }
@@ -208,46 +221,46 @@ public class CdcController : ControllerBase
             _logger.LogInformation("Capturing CDC data for session {SessionName}, capture {CaptureName}",
                 request.SessionName, request.CaptureName);
 
-            var response = new CaptureCdcResponse
-            {
-                SessionName = request.SessionName,
-                CaptureName = request.CaptureName,
-                CaptureType = request.CaptureType
-            };
-
-            // Create DACs for both databases
             var testDac = _connectionFactory.CreateDac(DatabaseRole.TestDatabase, _logger);
             var cdcMeDac = _connectionFactory.CreateDac(DatabaseRole.CdcMeDatabase, _logger);
 
-            // Step 1: Capture CDC data (without stopping CDC)
-            var allTables = CdcDataUtilities.GetTables(testDac);
-            var cdcData = CdcDataUtilities.BuildProfile(testDac, allTables, _logger);
-
-            _logger.LogDebug("Captured CDC data from {TableCount} tables", cdcData.Count);
-
-            // Step 2: Save captured data to CdcMe database
-            var captureHeaderId = await SaveCdcCaptureAsync(
+            // Perform CDC capture
+            var captureResult = await PerformCdcCaptureAsync(
+                testDac,
                 cdcMeDac,
                 request.SessionName,
                 request.CaptureName,
-                request.CaptureType,
-                cdcData,
-                allTables.Select(t => $"{t.Schema}.{t.Name}").ToList(),
-                new List<string>() // tablesSkipped
-            );
+                request.CaptureType);
 
-            // Build response
-            var tablesWithChanges = cdcData.Keys.ToList();
-            var totalRecords = cdcData.Values.Sum(tableData => tableData.Count());
+            // Handle capture failure
+            if (!captureResult.IsSuccess)
+            {
+                return Ok(new CaptureCdcResponse
+                {
+                    Success = false,
+                    SessionName = request.SessionName,
+                    CaptureName = request.CaptureName,
+                    CaptureType = request.CaptureType,
+                    Message = $"CDC data capture failed: {captureResult.ErrorMessage}",
+                    TablesWithChanges = new List<string>(),
+                    TotalRecords = 0
+                });
+            }
 
-            response.Success = true;
-            response.Message = $"CDC data captured successfully (CDC still active)";
-            response.TablesWithChanges = tablesWithChanges;
-            response.TotalRecords = totalRecords;
-            response.CaptureId = captureHeaderId;
+            var response = new CaptureCdcResponse
+            {
+                Success = true,
+                SessionName = request.SessionName,
+                CaptureName = request.CaptureName,
+                CaptureType = request.CaptureType,
+                Message = "CDC data captured successfully (CDC still active)",
+                TablesWithChanges = captureResult.TablesWithChanges,
+                TotalRecords = captureResult.TotalRecords,
+                CaptureId = captureResult.CaptureId
+            };
 
             _logger.LogInformation("CDC captured successfully for session {SessionName}. Captured {RecordCount} records from {TableCount} tables",
-                request.SessionName, totalRecords, tablesWithChanges.Count);
+                request.SessionName, captureResult.TotalRecords, captureResult.TablesWithChanges.Count);
 
             return Ok(response);
         }
@@ -267,13 +280,81 @@ public class CdcController : ControllerBase
     }
 
     /// <summary>
+    /// Result of CDC capture operation
+    /// </summary>
+    private class CdcCaptureResult
+    {
+        public bool IsSuccess { get; set; }
+        public string ErrorMessage { get; set; } = string.Empty;
+        public List<string> TablesWithChanges { get; set; } = new();
+        public int TotalRecords { get; set; }
+        public string CaptureId { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Perform CDC capture operation (common logic for both stop and capture endpoints)
+    /// </summary>
+    /// <param name="testDac">Test database connection</param>
+    /// <param name="cdcMeDac">CdcMe database connection</param>
+    /// <param name="sessionName">Session name</param>
+    /// <param name="captureName">Capture name</param>
+    /// <param name="captureType">Capture type</param>
+    /// <returns>CDC capture result</returns>
+    private async Task<CdcCaptureResult> PerformCdcCaptureAsync(
+        SimpleDac testDac,
+        SimpleDac cdcMeDac,
+        string sessionName,
+        string captureName,
+        string captureType)
+    {
+        // Step 1: Capture CDC data (net changes only)
+        var allTables = CdcDataUtilities.GetTables(testDac);
+        var cdcResult = CdcDataUtilities.BuildNetProfile(testDac, allTables, _logger);
+
+        _logger.LogDebug("Captured CDC data from {TableCount} tables", cdcResult.Data.Count);
+
+        // Check for capture errors
+        if (!cdcResult.IsSuccess)
+        {
+            return new CdcCaptureResult
+            {
+                IsSuccess = false,
+                ErrorMessage = string.Join("; ", cdcResult.Errors)
+            };
+        }
+
+        // Step 2: Save captured data to CdcMe database
+        var captureHeaderId = await SaveCdcCaptureAsync(
+            cdcMeDac,
+            sessionName,
+            captureName,
+            captureType,
+            cdcResult.Data,
+            allTables.Select(t => $"{t.Schema}.{t.Name}").ToList(),
+            new List<string>() // tablesSkipped - we'll enhance this later
+        );
+
+        // Build result
+        var tablesWithChanges = cdcResult.Data.Keys.ToList();
+        var totalRecords = cdcResult.Data.Values.Sum(tableData => tableData.Count());
+
+        return new CdcCaptureResult
+        {
+            IsSuccess = true,
+            TablesWithChanges = tablesWithChanges,
+            TotalRecords = totalRecords,
+            CaptureId = captureHeaderId
+        };
+    }
+
+    /// <summary>
     /// Filter tables based on include/exclude criteria
     /// </summary>
     /// <param name="allTables">All available tables</param>
     /// <param name="tablesToInclude">Tables to include (optional)</param>
     /// <param name="tablesToExclude">Tables to exclude (optional)</param>
     /// <returns>Filtered list of tables</returns>
-    private static IEnumerable<SqlTable> FilterTables(
+    internal static IEnumerable<SqlTable> FilterTables(
         IEnumerable<SqlTable> allTables,
         List<string>? tablesToInclude,
         List<string>? tablesToExclude)
@@ -324,10 +405,14 @@ public class CdcController : ControllerBase
                 configuration = @configuration::jsonb,
                 start_time = NOW()";
 
+        // Extract actual database name from connection string
+        var testConnectionString = _connectionFactory.GetConnectionString(DatabaseRole.TestDatabase);
+        var databaseName = ExtractDatabaseNameFromConnectionString(testConnectionString);
+
         var parameters = new Dictionary<string, object>
         {
             ["sessionName"] = sessionName,
-            ["testDatabase"] = "TestDatabase", // Could be made configurable
+            ["testDatabase"] = databaseName,
             ["description"] = $"CDC session created via API",
             ["configuration"] = JsonSerializer.Serialize(configuration)
         };
@@ -356,72 +441,87 @@ public class CdcController : ControllerBase
         List<string> tablesEnabled,
         List<string> tablesSkipped)
     {
-        // Step 1: Get session ID
-        const string getSessionSql = "SELECT session_id FROM trace_sessions WHERE session_name = @sessionName";
-        var sessionId = await cdcMeDac.ExecuteScalarAsync<Guid>(getSessionSql,
-            new Dictionary<string, object> { ["sessionName"] = sessionName });
-
-        if (sessionId == Guid.Empty)
+        // Wrap entire operation in a transaction to ensure data consistency
+        using var transaction = await cdcMeDac.BeginTransactionAsync();
+        try
         {
-            throw new InvalidOperationException($"Session '{sessionName}' not found. Please start CDC first.");
-        }
+            // Step 1: Get session ID
+            const string getSessionSql = "SELECT session_id FROM trace_sessions WHERE session_name = @sessionName";
+            var sessionId = await cdcMeDac.ExecuteScalarAsync<Guid>(getSessionSql,
+                new Dictionary<string, object> { ["sessionName"] = sessionName });
 
-        // Step 2: Create capture header
-        const string insertHeaderSql = @"
-            INSERT INTO cdc_capture_headers (
-                session_id, capture_name, capture_type, tables_enabled,
-                tables_skipped, total_records, status
-            ) VALUES (
-                @sessionId, @captureName, @captureType, @tablesEnabled::jsonb,
-                @tablesSkipped::jsonb, @totalRecords, @status
-            ) RETURNING capture_header_id";
-
-        var totalRecords = cdcData.Values.Sum(tableData => tableData.Count());
-        var captureHeaderId = await cdcMeDac.ExecuteScalarAsync<Guid>(insertHeaderSql, new Dictionary<string, object>
-        {
-            ["sessionId"] = sessionId,
-            ["captureName"] = captureName,
-            ["captureType"] = captureType,
-            ["tablesEnabled"] = JsonSerializer.Serialize(tablesEnabled),
-            ["tablesSkipped"] = JsonSerializer.Serialize(tablesSkipped),
-            ["totalRecords"] = totalRecords,
-            ["status"] = "Completed"
-        });
-
-        // Step 3: Create capture details for each table
-        const string insertDetailSql = @"
-            INSERT INTO cdc_captures (
-                capture_header_id, table_name, capture_data, record_count, data_hash
-            ) VALUES (
-                @captureHeaderId, @tableName, @captureData::jsonb, @recordCount, @dataHash
-            )";
-
-        foreach (var tableData in cdcData)
-        {
-            var tableName = tableData.Key;
-            var data = tableData.Value;
-            var recordCount = data.Count();
-
-            if (recordCount > 0)
+            if (sessionId == Guid.Empty)
             {
-                var jsonData = JsonSerializer.Serialize(data);
-                var dataHash = ComputeSha256Hash(jsonData);
-
-                await cdcMeDac.ExecuteCommandAsync(insertDetailSql, new Dictionary<string, object>
-                {
-                    ["captureHeaderId"] = captureHeaderId,
-                    ["tableName"] = tableName,
-                    ["captureData"] = jsonData,
-                    ["recordCount"] = recordCount,
-                    ["dataHash"] = dataHash
-                });
+                throw new InvalidOperationException($"Session '{sessionName}' not found. Please start CDC first.");
             }
+
+            // Step 2: Create capture header
+            const string insertHeaderSql = @"
+                INSERT INTO cdc_capture_headers (
+                    session_id, capture_name, capture_type, tables_enabled,
+                    tables_skipped, total_records, status
+                ) VALUES (
+                    @sessionId, @captureName, @captureType, @tablesEnabled::jsonb,
+                    @tablesSkipped::jsonb, @totalRecords, @status
+                ) RETURNING capture_header_id";
+
+            var totalRecords = cdcData.Values.Sum(tableData => tableData.Count());
+            var captureHeaderId = await cdcMeDac.ExecuteScalarAsync<Guid>(insertHeaderSql, new Dictionary<string, object>
+            {
+                ["sessionId"] = sessionId,
+                ["captureName"] = captureName,
+                ["captureType"] = captureType,
+                ["tablesEnabled"] = JsonSerializer.Serialize(tablesEnabled),
+                ["tablesSkipped"] = JsonSerializer.Serialize(tablesSkipped),
+                ["totalRecords"] = totalRecords,
+                ["status"] = "Completed"
+            });
+
+            // Step 3: Create capture details for each table
+            const string insertDetailSql = @"
+                INSERT INTO cdc_captures (
+                    capture_header_id, table_name, capture_data, record_count, data_hash
+                ) VALUES (
+                    @captureHeaderId, @tableName, @captureData::jsonb, @recordCount, @dataHash
+                )";
+
+            foreach (var tableData in cdcData)
+            {
+                var tableName = tableData.Key;
+                var data = tableData.Value;
+                var recordCount = data.Count();
+
+                if (recordCount > 0)
+                {
+                    var jsonData = JsonSerializer.Serialize(data);
+                    var dataHash = ComputeSha256Hash(jsonData);
+
+                    await cdcMeDac.ExecuteCommandAsync(insertDetailSql, new Dictionary<string, object>
+                    {
+                        ["captureHeaderId"] = captureHeaderId,
+                        ["tableName"] = tableName,
+                        ["captureData"] = jsonData,
+                        ["recordCount"] = recordCount,
+                        ["dataHash"] = dataHash
+                    });
+                }
+            }
+
+            // Commit the transaction if all operations succeeded
+            await transaction.CommitAsync();
+
+            _logger.LogDebug("Saved CDC capture {CaptureName} with header ID {HeaderId}",
+                captureName, captureHeaderId);
+
+            return captureHeaderId.ToString();
         }
-
-        _logger.LogDebug("Saved CDC capture {CaptureName} with header ID {HeaderId}",
-            captureName, captureHeaderId);
-
-        return captureHeaderId.ToString();
+        catch (Exception ex)
+        {
+            // Rollback transaction on any error
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Failed to save CDC capture {CaptureName}, transaction rolled back", captureName);
+            throw;
+        }
     }
 
     /// <summary>
@@ -435,5 +535,123 @@ public class CdcController : ControllerBase
         var bytes = Encoding.UTF8.GetBytes(input);
         var hashBytes = sha256.ComputeHash(bytes);
         return Convert.ToHexString(hashBytes).ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Extract database name from SQL Server connection string
+    /// </summary>
+    /// <param name="connectionString">SQL Server connection string</param>
+    /// <returns>Database name</returns>
+    private static string ExtractDatabaseNameFromConnectionString(string connectionString)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+            return "Unknown";
+
+        try
+        {
+            var builder = new SqlConnectionStringBuilder(connectionString);
+            return builder.InitialCatalog ?? "Unknown";
+        }
+        catch
+        {
+            // Fallback: try to parse manually
+            var parts = connectionString.Split(';', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var part in parts)
+            {
+                var keyValue = part.Split('=', 2);
+                if (keyValue.Length == 2)
+                {
+                    var key = keyValue[0].Trim().ToLowerInvariant();
+                    if (key == "database" || key == "initial catalog")
+                    {
+                        return keyValue[1].Trim();
+                    }
+                }
+            }
+            return "Unknown";
+        }
+    }
+
+    /// <summary>
+    /// Compare two CDC captures to validate that they produce identical data changes
+    /// </summary>
+    /// <param name="request">Comparison request parameters</param>
+    /// <returns>Detailed comparison results</returns>
+    [HttpPost("compare")]
+    public async Task<ActionResult<cdc_api.Models.CompareCapturesResponse>> CompareCapturesAsync([FromBody] cdc_api.Models.CompareCapturesRequest request)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        try
+        {
+            _logger.LogInformation("Starting comparison between baseline '{Baseline}' and test '{Test}'",
+                request.BaselineCaptureName, request.TestCaptureName);
+
+            // Create connection to trace database
+            var traceDac = _connectionFactory.CreateDac(DatabaseRole.CdcMeDatabase, _logger);
+            
+            // Create comparer and perform comparison
+            var comparer = new CdcCaptureComparer(traceDac, _logger);
+            var cdcRequest = new Softbase.Cdc.CompareCapturesRequest
+            {
+                BaselineCaptureName = request.BaselineCaptureName,
+                TestCaptureName = request.TestCaptureName,
+                FieldsToIgnore = request.FieldsToIgnore ?? new List<string>(),
+                IgnoreLsnDifferences = request.IgnoreLsnDifferences
+            };
+
+            var result = await comparer.CompareCapturesAsync(cdcRequest);
+
+            // Map to API response model
+            var response = new cdc_api.Models.CompareCapturesResponse
+            {
+                IsMatch = result.IsMatch,
+                Failures = result.Failures.Select(f => new cdc_api.Models.CaptureComparisonFailure
+                {
+                    TableName = f.TableName,
+                    FailureType = f.FailureType,
+                    PrimaryKey = f.PrimaryKey,
+                    FieldName = f.FieldName,
+                    BaselineValue = f.BaselineValue,
+                    TestValue = f.TestValue,
+                    Description = f.Description
+                }).ToList(),
+                Summary = new cdc_api.Models.ComparisonSummary
+                {
+                    TablesCompared = result.Summary.TablesCompared,
+                    RecordsCompared = result.Summary.RecordsCompared,
+                    FieldsCompared = result.Summary.FieldsCompared,
+                    TotalFailures = result.Summary.TotalFailures,
+                    TablesWithFailures = result.Summary.TablesWithFailures,
+                    ComparisonDuration = result.Summary.ComparisonDuration
+                },
+                Errors = result.Errors
+            };
+
+            if (result.IsMatch)
+            {
+                _logger.LogInformation("Comparison successful: captures match exactly. Compared {TablesCompared} tables, {RecordsCompared} records in {Duration}ms",
+                    result.Summary.TablesCompared, result.Summary.RecordsCompared, result.Summary.ComparisonDuration.TotalMilliseconds);
+            }
+            else
+            {
+                _logger.LogWarning("Comparison failed: {FailureCount} differences found across {TablesWithFailures} tables",
+                    result.Summary.TotalFailures, result.Summary.TablesWithFailures);
+            }
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error comparing captures");
+            return BadRequest(new cdc_api.Models.CompareCapturesResponse
+            {
+                IsMatch = false,
+                Errors = new List<string> { $"Comparison failed: {ex.Message}" }
+            });
+        }
     }
 }
