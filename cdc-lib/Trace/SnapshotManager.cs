@@ -19,13 +19,7 @@ namespace Softbase.Cdc.Trace
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public async Task<string> CreateSnapshotAsync(string databaseName, string snapshotName)
-        {
-            var result = await CreateSnapshotAsync(databaseName, snapshotName, string.Empty);
-            return result.Success ? snapshotName : throw new InvalidOperationException(result.Message);
-        }
-
-        public async Task<SnapshotResult> CreateSnapshotAsync(string databaseName, string snapshotName, string connectionString)
+        public async Task<SnapshotResult> CreateSnapshotAsync(string databaseName, string snapshotName)
         {
             _logger.LogInformation("Creating snapshot {SnapshotName} for database {DatabaseName}", snapshotName, databaseName);
 
@@ -82,7 +76,7 @@ namespace Softbase.Cdc.Trace
             }
         }
 
-        public async Task<SnapshotResult> RestoreSnapshotAsync(string snapshotName, string targetDatabaseName, string connectionString)
+        public async Task<SnapshotResult> RestoreSnapshotAsync(string snapshotName, string targetDatabaseName)
         {
             _logger.LogInformation("Restoring snapshot {SnapshotName} to database {TargetDatabase}", snapshotName, targetDatabaseName);
 
@@ -99,22 +93,48 @@ namespace Softbase.Cdc.Trace
                     };
                 }
 
-                // Drop target database if it exists
-                var dropSql = $@"
-                    IF EXISTS (SELECT name FROM sys.databases WHERE name = '{targetDatabaseName}')
-                    BEGIN
-                        ALTER DATABASE [{targetDatabaseName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-                        DROP DATABASE [{targetDatabaseName}];
-                    END";
+                // Check if target database exists
+                var databaseExistsSql = $"SELECT COUNT(1) FROM sys.databases WHERE name = '{targetDatabaseName}'";
+                var databaseExists = await _dac.ExecuteScalarAsync<int>(databaseExistsSql) > 0;
 
-                await _dac.ExecuteCommandAsync(dropSql);
+                if (!databaseExists)
+                {
+                    return new SnapshotResult
+                    {
+                        Success = false,
+                        Message = $"Target database '{targetDatabaseName}' does not exist. Cannot restore snapshot to non-existent database.",
+                        SnapshotName = snapshotName
+                    };
+                }
 
-                // Restore from snapshot by creating a new database from the snapshot
-                var restoreSql = $@"
-                    RESTORE DATABASE [{targetDatabaseName}]
-                    FROM DATABASE_SNAPSHOT = '{snapshotName}'";
+                // Set database to single user mode
+                var setSingleUserSql = $"ALTER DATABASE [{targetDatabaseName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;";
 
-                await _dac.ExecuteCommandAsync(restoreSql);
+                // Restore from snapshot
+                var restoreSql = $"use master;RESTORE DATABASE [{targetDatabaseName}] FROM DATABASE_SNAPSHOT = '{snapshotName}';";
+
+                // Set back to multi user mode
+                var setMultiUserSql = $"ALTER DATABASE [{targetDatabaseName}] SET MULTI_USER;";
+
+                try
+                {
+                    await _dac.ExecuteCommandAsync(setSingleUserSql);
+                    await _dac.ExecuteCommandAsync(restoreSql);
+                    await _dac.ExecuteCommandAsync(setMultiUserSql);
+                }
+                catch (Exception)
+                {
+                    // Try to set back to multi user mode if restore failed
+                    try
+                    {
+                        await _dac.ExecuteCommandAsync(setMultiUserSql);
+                    }
+                    catch (Exception cleanupEx)
+                    {
+                        _logger.LogError(cleanupEx, "Failed to reset database to multi-user mode after restore failure");
+                    }
+                    throw;
+                }
                 _logger.LogInformation("Successfully restored snapshot {SnapshotName} to {TargetDatabase}", snapshotName, targetDatabaseName);
 
                 return new SnapshotResult
@@ -154,70 +174,41 @@ namespace Softbase.Cdc.Trace
 
         public async Task RestoreFromSnapshotAsync(string databaseName, string snapshotName)
         {
-            _logger.LogInformation("Restoring database {DatabaseName} from snapshot {SnapshotName}", databaseName, snapshotName);
+            // Delegate to RestoreSnapshotAsync and throw on failure for backward compatibility
+            var result = await RestoreSnapshotAsync(snapshotName, databaseName);
 
-            if (!await SnapshotExistsAsync(snapshotName))
+            if (!result.Success)
             {
-                throw new InvalidOperationException($"Snapshot '{snapshotName}' does not exist.");
-            }
-
-            // Set database to single user mode
-            var setSingleUserSql = $"ALTER DATABASE [{databaseName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;";
-
-            // Restore from snapshot
-            var restoreSql = $"RESTORE DATABASE [{databaseName}] FROM DATABASE_SNAPSHOT = '{snapshotName}';";
-
-            // Set back to multi user mode
-            var setMultiUserSql = $"ALTER DATABASE [{databaseName}] SET MULTI_USER;";
-
-            try
-            {
-                await _dac.ExecuteCommandAsync(setSingleUserSql);
-                await _dac.ExecuteCommandAsync(restoreSql);
-                await _dac.ExecuteCommandAsync(setMultiUserSql);
-
-                _logger.LogInformation("Successfully restored database {DatabaseName} from snapshot {SnapshotName}", databaseName, snapshotName);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to restore database {DatabaseName} from snapshot {SnapshotName}", databaseName, snapshotName);
-
-                // Try to set back to multi user mode if restore failed
-                try
-                {
-                    await _dac.ExecuteCommandAsync(setMultiUserSql);
-                }
-                catch (Exception cleanupEx)
-                {
-                    _logger.LogError(cleanupEx, "Failed to reset database to multi-user mode after restore failure");
-                }
-
-                throw;
+                throw new InvalidOperationException(result.Message);
             }
         }
 
-        public async Task<SnapshotResult> DropSnapshotAsync(string snapshotName, string connectionString)
+        public async Task<SnapshotResult> DropSnapshotAsync(string snapshotName)
         {
             _logger.LogInformation("Dropping snapshot {SnapshotName}", snapshotName);
 
+            if (!await SnapshotExistsAsync(snapshotName))
+            {
+                _logger.LogWarning("Snapshot {SnapshotName} does not exist, nothing to drop", snapshotName);
+                return new SnapshotResult
+                {
+                    Success = false,
+                    Message = $"Snapshot {snapshotName} does not exist, nothing to drop",
+                    SnapshotName = snapshotName
+                };
+            }
+
+            var dropSnapshotSql = $"DROP DATABASE [{snapshotName}];";
+
             try
             {
-                if (!await SnapshotExistsAsync(snapshotName))
-                {
-                    return new SnapshotResult
-                    {
-                        Success = false,
-                        Message = $"Snapshot '{snapshotName}' does not exist",
-                        SnapshotName = snapshotName
-                    };
-                }
-
-                await DropSnapshotAsync(snapshotName);
+                await _dac.ExecuteCommandAsync(dropSnapshotSql);
+                _logger.LogInformation("Successfully dropped snapshot {SnapshotName}", snapshotName);
 
                 return new SnapshotResult
                 {
                     Success = true,
-                    Message = "Snapshot dropped successfully",
+                    Message = $"Successfully dropped snapshot {snapshotName}",
                     SnapshotName = snapshotName
                 };
             }
@@ -231,30 +222,6 @@ namespace Softbase.Cdc.Trace
                     SnapshotName = snapshotName,
                     ErrorDetails = ex.ToString()
                 };
-            }
-        }
-
-        public async Task DropSnapshotAsync(string snapshotName)
-        {
-            _logger.LogInformation("Dropping snapshot {SnapshotName}", snapshotName);
-
-            if (!await SnapshotExistsAsync(snapshotName))
-            {
-                _logger.LogWarning("Snapshot {SnapshotName} does not exist, nothing to drop", snapshotName);
-                return;
-            }
-
-            var dropSnapshotSql = $"DROP DATABASE [{snapshotName}];";
-
-            try
-            {
-                await _dac.ExecuteCommandAsync(dropSnapshotSql);
-                _logger.LogInformation("Successfully dropped snapshot {SnapshotName}", snapshotName);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to drop snapshot {SnapshotName}", snapshotName);
-                throw;
             }
         }
 
@@ -293,7 +260,7 @@ namespace Softbase.Cdc.Trace
             });
         }
 
-        public async Task<List<SnapshotInfo>> ListSnapshotsAsync(string databaseName, string connectionString)
+        public async Task<List<SnapshotInfo>> ListSnapshotsAsync(string databaseName)
         {
             // For API compatibility - filter by database name if provided
             var allSnapshots = await ListSnapshotsAsync();
@@ -310,7 +277,7 @@ namespace Softbase.Cdc.Trace
                     d.name AS SnapshotName,
                     sd.name AS SourceDatabase,
                     d.create_date AS CreatedTime,
-                    ISNULL(SUM(mf.size * 8 * 1024), 0) AS SizeInBytes,
+                    CAST(ISNULL(SUM(mf.size * 8 * 1024), 0) AS BIGINT) AS SizeInBytes,
                     d.state_desc AS Status
                 FROM sys.databases d
                 LEFT JOIN sys.databases sd ON d.source_database_id = sd.database_id

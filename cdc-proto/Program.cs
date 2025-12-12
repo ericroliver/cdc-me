@@ -272,7 +272,7 @@ internal class OldProgram
     //    try
     //    {
     //        tableResult = GetTables(dac);
-    //        var profile = BuildProfile(dac, tableResult, logger);
+    //        var profile = BuildNetProfile(dac, tableResult, logger);
     //        File.WriteAllText("/Users/sakamoto/.cdc/profile1.json", profile.ToJson(true));
     //    }
     //    catch (Exception ex)

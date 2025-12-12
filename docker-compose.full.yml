@@ -1,0 +1,96 @@
+# Docker Compose configuration for CDC Testing Framework
+# Production-ready setup with SQL Server and PostgreSQL
+
+version: '3.8'
+
+services:
+  # CDC Testing Framework API
+  cdc-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        DOTNET_VERSION: "9.0"
+        VERSION: "${VERSION:-1.0.0}"
+    image: cdc-api:${VERSION:-latest}
+    container_name: cdc-api
+    ports:
+      - "${API_PORT:-8080}:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
+      - ASPNETCORE_URLS=http://+:8080
+      - TEST_DB_CONNECTION=${TEST_DB_CONNECTION}
+      - CDCME_DB_CONNECTION=${CDCME_DB_CONNECTION}
+      - TEST_DB_PROVIDER=${TEST_DB_PROVIDER:-SqlServer}
+      - CDCME_DB_PROVIDER=${CDCME_DB_PROVIDER:-PostgreSQL}
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - cdc-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # SQL Server - Test Database (CDC enabled)
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: cdc-sqlserver
+    ports:
+      - "${SQL_PORT:-1433}:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=${SQL_SA_PASSWORD:-YourStrong@Passw0rd}
+      - MSSQL_PID=${SQL_PID:-Developer}
+      - MSSQL_AGENT_ENABLED=true
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+      - ./scripts:/docker-entrypoint-initdb.d:ro
+    networks:
+      - cdc-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $${MSSQL_SA_PASSWORD} -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # PostgreSQL - Trace Database (stores CDC profiles and trace data)
+  postgres:
+    image: postgres:16-alpine
+    container_name: cdc-postgres
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-cdcme}
+      - POSTGRES_USER=${POSTGRES_USER:-cdcme}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-cdcme_password}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/create-trace-database-postgresql.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    networks:
+      - cdc-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  sqlserver-data:
+    driver: local
+  postgres-data:
+    driver: local
+
+networks:
+  cdc-network:
+    driver: bridge

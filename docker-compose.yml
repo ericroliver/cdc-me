@@ -1,0 +1,34 @@
+# Docker Compose configuration for CDC Testing Framework
+# Production-ready setup with SQL Server and PostgreSQL
+
+services:
+  # CDC Testing Framework API
+  cdc-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        DOTNET_VERSION: "9.0"
+        VERSION: "${VERSION:-1.0.0}"
+    image: cdc-api:${VERSION:-latest}
+    container_name: cdc-api
+    ports:
+      - "${API_PORT:-8080}:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
+      - ASPNETCORE_URLS=http://+:8080
+      - TEST_DB_CONNECTION=${TEST_DB_CONNECTION}
+      - CDCME_DB_CONNECTION=${CDCME_DB_CONNECTION}
+      - TEST_DB_PROVIDER=${TEST_DB_PROVIDER:-SqlServer}
+      - CDCME_DB_PROVIDER=${CDCME_DB_PROVIDER:-PostgreSQL}
+    volumes:
+      - ./config/appsettings.json:/app/appsettings.json:ro
+      - ./config/appsettings.Development.json:/app/appsettings.Development.json:ro
+      - ./config/appsettings.Production.json:/app/appsettings.Production.json:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

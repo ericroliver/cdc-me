@@ -28,7 +28,6 @@ BEGIN
         [SessionId] UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
         [SessionName] NVARCHAR(255) NOT NULL UNIQUE,
         [TestDatabase] NVARCHAR(128) NOT NULL,
-        [TestConnectionString] NVARCHAR(1000) NOT NULL,
         [SnapshotName] NVARCHAR(128) NULL,
         [StartTime] DATETIME2(7) NOT NULL DEFAULT SYSUTCDATETIME(),
         [EndTime] DATETIME2(7) NULL,
@@ -62,6 +61,12 @@ BEGIN
         [Reads] BIGINT NULL,
         [Writes] BIGINT NULL,
         [SqlText] NVARCHAR(MAX) NULL,
+        [TsqlStack] NVARCHAR(MAX) NULL,
+        [PlanHandle] VARBINARY(64) NULL,
+        [RequestId] INT NULL,
+        [ClientConnectionId] UNIQUEIDENTIFIER NULL,
+        [TransactionId] BIGINT NULL,
+        [Statement] NVARCHAR(MAX) NULL,
         [ExecutionOrder] BIGINT NOT NULL,
         [IsReplayable] BIT NOT NULL DEFAULT 1,
         FOREIGN KEY ([SessionId]) REFERENCES [TraceSessions]([SessionId]) ON DELETE CASCADE
@@ -69,6 +74,50 @@ BEGIN
 
     CREATE INDEX IX_TraceEvents_SessionId_ExecutionOrder ON [dbo].[TraceEvents] ([SessionId], [ExecutionOrder]);
     CREATE INDEX IX_TraceEvents_EventTime ON [dbo].[TraceEvents] ([EventTime]);
+END
+GO
+
+-- Add new columns to existing TraceEvents table if they don't exist
+IF NOT EXISTS (SELECT *
+FROM sys.columns
+WHERE object_id = OBJECT_ID(N'[dbo].[TraceEvents]') AND name = 'TsqlStack')
+BEGIN
+    ALTER TABLE [dbo].[TraceEvents] ADD [TsqlStack] NVARCHAR(MAX) NULL;
+END
+
+IF NOT EXISTS (SELECT *
+FROM sys.columns
+WHERE object_id = OBJECT_ID(N'[dbo].[TraceEvents]') AND name = 'PlanHandle')
+BEGIN
+    ALTER TABLE [dbo].[TraceEvents] ADD [PlanHandle] VARBINARY(64) NULL;
+END
+
+IF NOT EXISTS (SELECT *
+FROM sys.columns
+WHERE object_id = OBJECT_ID(N'[dbo].[TraceEvents]') AND name = 'RequestId')
+BEGIN
+    ALTER TABLE [dbo].[TraceEvents] ADD [RequestId] INT NULL;
+END
+
+IF NOT EXISTS (SELECT *
+FROM sys.columns
+WHERE object_id = OBJECT_ID(N'[dbo].[TraceEvents]') AND name = 'ClientConnectionId')
+BEGIN
+    ALTER TABLE [dbo].[TraceEvents] ADD [ClientConnectionId] UNIQUEIDENTIFIER NULL;
+END
+
+IF NOT EXISTS (SELECT *
+FROM sys.columns
+WHERE object_id = OBJECT_ID(N'[dbo].[TraceEvents]') AND name = 'TransactionId')
+BEGIN
+    ALTER TABLE [dbo].[TraceEvents] ADD [TransactionId] BIGINT NULL;
+END
+
+IF NOT EXISTS (SELECT *
+FROM sys.columns
+WHERE object_id = OBJECT_ID(N'[dbo].[TraceEvents]') AND name = 'Statement')
+BEGIN
+    ALTER TABLE [dbo].[TraceEvents] ADD [Statement] NVARCHAR(MAX) NULL;
 END
 GO
 

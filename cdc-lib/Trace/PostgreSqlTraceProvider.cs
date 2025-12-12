@@ -25,8 +25,8 @@ namespace Softbase.Cdc.Trace
         public async Task<TraceSession> CreateSessionAsync(TraceConfiguration config)
         {
             const string insertSql = @"
-                INSERT INTO trace_sessions (session_name, test_database, test_connection_string, snapshot_name, description, configuration)
-                VALUES (@sessionName, @testDatabase, @testConnectionString, @snapshotName, @description, @configuration::jsonb)
+                INSERT INTO trace_sessions (session_name, test_database, snapshot_name, description, configuration)
+                VALUES (@sessionName, @testDatabase, @snapshotName, @description, @configuration::jsonb)
                 RETURNING session_id, start_time, status, created_by";
 
             using var connection = new NpgsqlConnection(_connectionString);
@@ -35,7 +35,6 @@ namespace Softbase.Cdc.Trace
             using var command = new NpgsqlCommand(insertSql, connection);
             command.Parameters.AddWithValue("@sessionName", config.SessionName);
             command.Parameters.AddWithValue("@testDatabase", config.DatabaseName);
-            command.Parameters.AddWithValue("@testConnectionString", ""); // Will be set by caller
             command.Parameters.AddWithValue("@snapshotName", (object?)null ?? DBNull.Value);
             command.Parameters.AddWithValue("@description", config.Description ?? "");
             command.Parameters.AddWithValue("@configuration", JsonConvert.SerializeObject(config));
@@ -48,7 +47,6 @@ namespace Softbase.Cdc.Trace
                     SessionId = reader.GetGuid(0),
                     SessionName = config.SessionName,
                     TestDatabase = config.DatabaseName,
-                    TestConnectionString = "",
                     SnapshotName = null,
                     StartTime = reader.GetDateTime(1),
                     EndTime = null,
@@ -65,9 +63,9 @@ namespace Softbase.Cdc.Trace
         public async Task<TraceSession> GetSessionAsync(Guid sessionId)
         {
             const string selectSql = @"
-                SELECT session_id, session_name, test_database, test_connection_string, snapshot_name, 
+                SELECT session_id, session_name, test_database, snapshot_name,
                        start_time, end_time, status, created_by, description, configuration
-                FROM trace_sessions 
+                FROM trace_sessions
                 WHERE session_id = @sessionId";
 
             using var connection = new NpgsqlConnection(_connectionString);
@@ -88,9 +86,9 @@ namespace Softbase.Cdc.Trace
         public async Task<TraceSession> GetSessionByNameAsync(string sessionName)
         {
             const string selectSql = @"
-                SELECT session_id, session_name, test_database, test_connection_string, snapshot_name, 
+                SELECT session_id, session_name, test_database, snapshot_name,
                        start_time, end_time, status, created_by, description, configuration
-                FROM trace_sessions 
+                FROM trace_sessions
                 WHERE session_name = @sessionName";
 
             using var connection = new NpgsqlConnection(_connectionString);
@@ -111,10 +109,10 @@ namespace Softbase.Cdc.Trace
         public async Task<IEnumerable<TraceSession>> GetActiveSessionsAsync()
         {
             const string selectSql = @"
-                SELECT session_id, session_name, test_database, test_connection_string, snapshot_name, 
+                SELECT session_id, session_name, test_database, snapshot_name, 
                        start_time, end_time, status, created_by, description, configuration
                 FROM trace_sessions 
-                WHERE status = 'Active'
+                --WHERE status = 'Active'
                 ORDER BY start_time DESC";
 
             using var connection = new NpgsqlConnection(_connectionString);
@@ -135,9 +133,8 @@ namespace Softbase.Cdc.Trace
         public async Task UpdateSessionAsync(TraceSession session)
         {
             const string updateSql = @"
-                UPDATE trace_sessions 
-                SET test_connection_string = @testConnectionString,
-                    snapshot_name = @snapshotName,
+                UPDATE trace_sessions
+                SET snapshot_name = @snapshotName,
                     end_time = @endTime,
                     status = @status,
                     description = @description,
@@ -149,7 +146,6 @@ namespace Softbase.Cdc.Trace
 
             using var command = new NpgsqlCommand(updateSql, connection);
             command.Parameters.AddWithValue("@sessionId", session.SessionId);
-            command.Parameters.AddWithValue("@testConnectionString", session.TestConnectionString ?? "");
             command.Parameters.AddWithValue("@snapshotName", (object?)session.SnapshotName ?? DBNull.Value);
             command.Parameters.AddWithValue("@endTime", (object?)session.EndTime ?? DBNull.Value);
             command.Parameters.AddWithValue("@status", session.Status);
@@ -487,7 +483,7 @@ namespace Softbase.Cdc.Trace
 
         private TraceSession MapTraceSession(IDataReader reader)
         {
-            var configJson = reader.IsDBNull(10) ? null : reader.GetString(10);
+            var configJson = reader.IsDBNull(9) ? null : reader.GetString(9);
             TraceConfiguration config = null;
             if (!string.IsNullOrEmpty(configJson))
             {
@@ -506,13 +502,12 @@ namespace Softbase.Cdc.Trace
                 SessionId = reader.GetGuid(0),
                 SessionName = reader.GetString(1),
                 TestDatabase = reader.GetString(2),
-                TestConnectionString = reader.GetString(3),
-                SnapshotName = reader.IsDBNull(4) ? null : reader.GetString(4),
-                StartTime = reader.GetDateTime(5),
-                EndTime = reader.IsDBNull(6) ? null : reader.GetDateTime(6),
-                Status = reader.GetString(7),
-                CreatedBy = reader.GetString(8),
-                Description = reader.IsDBNull(9) ? null : reader.GetString(9),
+                SnapshotName = reader.IsDBNull(3) ? null : reader.GetString(3),
+                StartTime = reader.GetDateTime(4),
+                EndTime = reader.IsDBNull(5) ? null : reader.GetDateTime(5),
+                Status = reader.GetString(6),
+                CreatedBy = reader.GetString(7),
+                Description = reader.IsDBNull(8) ? null : reader.GetString(8),
                 Configuration = config
             };
         }

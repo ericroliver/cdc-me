@@ -7,7 +7,7 @@ namespace Softbase.Cdc.Trace
 {
     public interface ITraceManager
     {
-        Task<TraceSession> StartTraceAsync(TraceConfiguration config, string testConnectionString);
+        Task<TraceSession> StartTraceAsync(TraceConfiguration config);
         Task<TraceSession> StopTraceAsync(Guid sessionId);
         Task<TraceStatus> GetTraceStatusAsync(Guid sessionId);
         Task<IEnumerable<TraceSession>> GetActiveSessionsAsync();

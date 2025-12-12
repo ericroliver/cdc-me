@@ -20,12 +20,66 @@
 -- 6. Generate account balance reports
 -- =============================================
 
-USE [cdctest];
-GO
 
 PRINT 'Starting ERP Business Workflow Simulation...';
 PRINT 'Timestamp: ' + CONVERT(VARCHAR(23), GETDATE(), 121);
-GO
+
+-- =============================================
+-- ENSURE CHART OF ACCOUNTS EXISTS
+-- =============================================
+PRINT '';
+PRINT 'Ensuring Chart of Accounts is initialized...';
+
+-- Insert Chart of Accounts if it doesn't exist
+IF NOT EXISTS (SELECT 1
+FROM [dbo].[ChartOfAccounts])
+BEGIN
+    INSERT INTO [dbo].[ChartOfAccounts]
+        ([AccountNumber], [AccountName], [AccountType], [ParentAccountId])
+    VALUES
+        ('1000', 'Cash and Cash Equivalents', 'Asset', NULL),
+        ('1200', 'Accounts Receivable', 'Asset', NULL),
+        ('1300', 'Inventory', 'Asset', NULL),
+        ('1400', 'Prepaid Expenses', 'Asset', NULL),
+        ('2000', 'Accounts Payable', 'Liability', NULL),
+        ('2100', 'Accrued Expenses', 'Liability', NULL),
+        ('3000', 'Retained Earnings', 'Equity', NULL),
+        ('3100', 'Common Stock', 'Equity', NULL),
+        ('4000', 'Sales Revenue', 'Revenue', NULL),
+        ('4100', 'Service Revenue', 'Revenue', NULL),
+        ('5000', 'Cost of Goods Sold', 'Expense', NULL),
+        ('6000', 'Operating Expenses', 'Expense', NULL);
+
+    PRINT 'Chart of Accounts initialized with ' + CAST(@@ROWCOUNT AS VARCHAR(10)) + ' accounts';
+END
+ELSE
+BEGIN
+    PRINT 'Chart of Accounts already exists';
+END
+
+-- =============================================
+-- VARIABLE DECLARATIONS FOR ENTIRE SCRIPT
+-- =============================================
+-- Declare all variables at the top to ensure proper scope throughout the script
+
+-- Sales Order variables
+DECLARE @NewOrderId1 INT, @NewOrderNumber1 VARCHAR(20);
+DECLARE @NewOrderId2 INT, @NewOrderNumber2 VARCHAR(20);
+DECLARE @NewOrderId3 INT, @NewOrderNumber3 VARCHAR(20);
+
+-- AR and GL transaction variables
+DECLARE @ArId1 INT, @GlId1 INT;
+DECLARE @ArId2 INT, @GlId2 INT;
+DECLARE @ArId3 INT, @GlId3 INT;
+
+-- Payment variables
+DECLARE @PaymentArId1 INT, @PaymentGlId1 INT;
+DECLARE @PaymentArId2 INT, @PaymentGlId2 INT;
+
+-- Account balance variables
+DECLARE @CashBalance DECIMAL(18,2);
+DECLARE @ArBalance DECIMAL(18,2);
+DECLARE @SalesBalance DECIMAL(18,2);
 
 -- =============================================
 -- SCENARIO 1: CREATE NEW SALES ORDERS
@@ -33,10 +87,6 @@ GO
 
 PRINT '';
 PRINT '=== SCENARIO 1: Creating New Sales Orders ===';
-
-DECLARE @NewOrderId1 INT, @NewOrderNumber1 VARCHAR(20);
-DECLARE @NewOrderId2 INT, @NewOrderNumber2 VARCHAR(20);
-DECLARE @NewOrderId3 INT, @NewOrderNumber3 VARCHAR(20);
 
 -- Create Order 1: Technology Company
 EXEC [dbo].[usp_CreateSalesOrder]
@@ -134,13 +184,26 @@ FROM [dbo].[SalesOrder]
 WHERE OrderStatus = 'Open' AND SalesOrderId > @ExistingOrderId1
 ORDER BY SalesOrderId);
 
-DECLARE @ArId1 INT, @GlId1 INT;
-DECLARE @ArId2 INT, @GlId2 INT;
-DECLARE @ArId3 INT, @GlId3 INT;
+-- Variables already declared at script top
+
+-- Verify Chart of Accounts exists
+DECLARE @ArAccountExists BIT = 0, @SalesAccountExists BIT = 0;
+IF EXISTS (SELECT 1
+FROM [dbo].[ChartOfAccounts]
+WHERE AccountNumber = '1200')
+    SET @ArAccountExists = 1;
+IF EXISTS (SELECT 1
+FROM [dbo].[ChartOfAccounts]
+WHERE AccountNumber = '4000')
+    SET @SalesAccountExists = 1;
+
+PRINT 'Chart of Accounts validation: AR Account (1200) exists: ' + CASE WHEN @ArAccountExists = 1 THEN 'YES' ELSE 'NO' END;
+PRINT 'Chart of Accounts validation: Sales Account (4000) exists: ' + CASE WHEN @SalesAccountExists = 1 THEN 'YES' ELSE 'NO' END;
 
 -- Invoice the first existing order
 IF @ExistingOrderId1 IS NOT NULL
 BEGIN
+    PRINT 'Invoicing existing order ID: ' + CAST(@ExistingOrderId1 AS VARCHAR(10));
     EXEC [dbo].[usp_InvoiceSalesOrder]
         @SalesOrderId = @ExistingOrderId1,
         @InvoiceDate = NULL,
@@ -149,10 +212,15 @@ BEGIN
         @ArTransactionId = @ArId1 OUTPUT,
         @GlTransactionId = @GlId1 OUTPUT;
 END
+ELSE
+BEGIN
+    PRINT 'No existing order found for @ExistingOrderId1';
+END
 
 -- Invoice the second existing order
 IF @ExistingOrderId2 IS NOT NULL
 BEGIN
+    PRINT 'Invoicing existing order ID: ' + CAST(@ExistingOrderId2 AS VARCHAR(10));
     EXEC [dbo].[usp_InvoiceSalesOrder]
         @SalesOrderId = @ExistingOrderId2,
         @InvoiceDate = NULL,
@@ -161,8 +229,13 @@ BEGIN
         @ArTransactionId = @ArId2 OUTPUT,
         @GlTransactionId = @GlId2 OUTPUT;
 END
+ELSE
+BEGIN
+    PRINT 'No existing order found for @ExistingOrderId2';
+END
 
 -- Invoice one of the newly created orders
+PRINT 'Invoicing newly created order ID: ' + CAST(@NewOrderId1 AS VARCHAR(10));
 EXEC [dbo].[usp_InvoiceSalesOrder]
     @SalesOrderId = @NewOrderId1,
     @InvoiceDate = NULL,
@@ -172,6 +245,9 @@ EXEC [dbo].[usp_InvoiceSalesOrder]
     @GlTransactionId = @GlId3 OUTPUT;
 
 PRINT 'Invoiced multiple sales orders, created AR and GL transactions';
+PRINT 'GL Transaction IDs created: @GlId1=' + ISNULL(CAST(@GlId1 AS VARCHAR(10)), 'NULL') +
+      ', @GlId2=' + ISNULL(CAST(@GlId2 AS VARCHAR(10)), 'NULL') +
+      ', @GlId3=' + ISNULL(CAST(@GlId3 AS VARCHAR(10)), 'NULL');
 
 -- =============================================
 -- SCENARIO 3: POST GL TRANSACTIONS
@@ -183,24 +259,45 @@ PRINT '=== SCENARIO 3: Posting GL Transactions ===';
 -- Post the GL transactions we just created
 IF @GlId1 IS NOT NULL
 BEGIN
-    EXEC [dbo].[usp_PostGlTransaction]
-        @GlTransactionId = @GlId1,
-        @PostingDate = NULL,
-        @PostedBy = 'SimulationUser';
+    BEGIN TRY
+        PRINT 'Posting GL Transaction ID: ' + CAST(@GlId1 AS VARCHAR(10));
+        EXEC [dbo].[usp_PostGlTransaction]
+            @GlTransactionId = @GlId1,
+            @PostingDate = NULL,
+            @PostedBy = 'SimulationUser';
+    END TRY
+    BEGIN CATCH
+        PRINT 'Error posting GL Transaction ID ' + CAST(@GlId1 AS VARCHAR(10)) + ': ' + ERROR_MESSAGE();
+    END CATCH
 END
 
 IF @GlId2 IS NOT NULL
 BEGIN
-    EXEC [dbo].[usp_PostGlTransaction]
-        @GlTransactionId = @GlId2,
-        @PostingDate = NULL,
-        @PostedBy = 'SimulationUser';
+    BEGIN TRY
+        PRINT 'Posting GL Transaction ID: ' + CAST(@GlId2 AS VARCHAR(10));
+        EXEC [dbo].[usp_PostGlTransaction]
+            @GlTransactionId = @GlId2,
+            @PostingDate = NULL,
+            @PostedBy = 'SimulationUser';
+    END TRY
+    BEGIN CATCH
+        PRINT 'Error posting GL Transaction ID ' + CAST(@GlId2 AS VARCHAR(10)) + ': ' + ERROR_MESSAGE();
+    END CATCH
 END
 
-EXEC [dbo].[usp_PostGlTransaction]
-    @GlTransactionId = @GlId3,
-    @PostingDate = NULL,
-    @PostedBy = 'SimulationUser';
+IF @GlId3 IS NOT NULL
+BEGIN
+    BEGIN TRY
+        PRINT 'Posting GL Transaction ID: ' + CAST(@GlId3 AS VARCHAR(10));
+        EXEC [dbo].[usp_PostGlTransaction]
+            @GlTransactionId = @GlId3,
+            @PostingDate = NULL,
+            @PostedBy = 'SimulationUser';
+    END TRY
+    BEGIN CATCH
+        PRINT 'Error posting GL Transaction ID ' + CAST(@GlId3 AS VARCHAR(10)) + ': ' + ERROR_MESSAGE();
+    END CATCH
+END
 
 -- Post any other unposted GL transactions
 DECLARE @UnpostedGlId INT;
@@ -214,10 +311,26 @@ FETCH NEXT FROM gl_cursor INTO @UnpostedGlId;
 
 WHILE @@FETCH_STATUS = 0
 BEGIN
-    EXEC [dbo].[usp_PostGlTransaction]
-        @GlTransactionId = @UnpostedGlId,
-        @PostingDate = NULL,
-        @PostedBy = 'SimulationUser';
+    -- Validate the GL transaction exists before posting
+    IF EXISTS (SELECT 1
+    FROM [dbo].[GlTransaction]
+    WHERE GlTransactionId = @UnpostedGlId)
+    BEGIN
+        BEGIN TRY
+            PRINT 'Posting additional GL Transaction ID: ' + CAST(@UnpostedGlId AS VARCHAR(10));
+            EXEC [dbo].[usp_PostGlTransaction]
+                @GlTransactionId = @UnpostedGlId,
+                @PostingDate = NULL,
+                @PostedBy = 'SimulationUser';
+        END TRY
+        BEGIN CATCH
+            PRINT 'Error posting GL Transaction ID ' + CAST(@UnpostedGlId AS VARCHAR(10)) + ': ' + ERROR_MESSAGE();
+        END CATCH
+    END
+    ELSE
+    BEGIN
+        PRINT 'Warning: GL Transaction ID ' + CAST(@UnpostedGlId AS VARCHAR(10)) + ' not found, skipping...';
+    END
 
     FETCH NEXT FROM gl_cursor INTO @UnpostedGlId;
 END
@@ -235,8 +348,7 @@ PRINT '';
 PRINT '=== SCENARIO 4: Processing Customer Payments ===';
 
 -- Create payment transactions for some AR invoices
-DECLARE @PaymentArId1 INT, @PaymentGlId1 INT;
-DECLARE @PaymentArId2 INT, @PaymentGlId2 INT;
+-- Variables already declared at script top
 
 -- Get some open AR transactions to pay
 DECLARE @OpenArId1 INT = (SELECT TOP 1
@@ -385,9 +497,7 @@ PRINT '';
 PRINT '=== SCENARIO 6: Account Balance Reporting ===';
 
 -- Get account balances for key accounts
-DECLARE @CashBalance DECIMAL(18,2);
-DECLARE @ArBalance DECIMAL(18,2);
-DECLARE @SalesBalance DECIMAL(18,2);
+-- Variables already declared at script top
 
 DECLARE @CashAccountId INT = (SELECT AccountId
 FROM [dbo].[ChartOfAccounts]

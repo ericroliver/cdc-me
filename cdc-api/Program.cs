@@ -3,8 +3,37 @@ using Softbase;
 using Softbase.Cdc.Models;
 using Softbase.Cdc.Data;
 using cdc_api.Data;
+using DotNetEnv;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Load .env file if it exists - check multiple locations
+var possibleEnvPaths = new[]
+{
+    Path.Combine(Directory.GetCurrentDirectory(), ".env"), // Current directory
+    Path.Combine(Directory.GetCurrentDirectory(), "..", ".env"), // Parent directory (when running from cdc-api)
+    Path.Combine(AppContext.BaseDirectory, ".env"), // Application base directory
+    Path.Combine(AppContext.BaseDirectory, "..", ".env") // Parent of application base directory
+};
+
+foreach (var envPath in possibleEnvPaths)
+{
+    if (File.Exists(envPath))
+    {
+        Env.Load(envPath);
+        Console.WriteLine($"Loaded .env file from: {envPath}");
+
+        // Add environment variables to configuration
+        builder.Configuration.AddEnvironmentVariables();
+        break;
+    }
+}
+
+// Configure URLs to accept connections on any IP address when not specified
+if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")))
+{
+    builder.WebHost.UseUrls("http://0.0.0.0:5000", "https://0.0.0.0:5001");
+}
 
 // Add services to the container.
 

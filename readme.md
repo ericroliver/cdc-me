@@ -49,12 +49,70 @@ graph TB
 
 ### Prerequisites
 
-- **.NET 6.0** or later
+**Option 1: Docker (Recommended)**
+- **Docker**: Version 20.10 or later
+- **Docker Compose**: Version 2.0 or later
+- **System**: 4GB RAM minimum (8GB recommended)
+
+**Option 2: Local Development**
+- **.NET 9.0** or later
 - **SQL Server 2016+** (Standard/Enterprise/Developer Edition)
 - **SQL Server Agent** (must be running)
-- **Docker** (optional, for containerized testing)
+- **PostgreSQL 16+** (for trace database)
 
 ### Installation
+
+#### Using Docker Compose (Recommended)
+
+1. **Clone the repository:**
+
+```bash
+git clone <repository-url>
+cd cdc-me
+```
+
+2. **Configure environment:**
+
+```bash
+# Copy environment template
+cp .env.example .env
+
+# Edit .env with your settings (optional, defaults work for local development)
+nano .env
+```
+
+3. **Start all services:**
+
+```bash
+# Production mode
+docker-compose up -d
+
+# Development mode (with hot-reload and pgAdmin)
+docker-compose -f docker-compose.dev.yml up -d
+```
+
+4. **Verify services are running:**
+
+```bash
+# Check container status
+docker-compose ps
+
+# Test API
+curl http://localhost:8080/health
+
+# View logs
+docker-compose logs -f cdc-api
+```
+
+5. **Access the application:**
+
+- **API**: http://localhost:8080
+- **Swagger UI**: http://localhost:8080/swagger
+- **pgAdmin** (dev only): http://localhost:5050
+
+**See the [Docker Guide](docs/docker.md) for detailed Docker usage, troubleshooting, and advanced configurations.**
+
+#### Local Development Setup
 
 1. **Clone the repository:**
 
@@ -75,15 +133,32 @@ dotnet restore
 dotnet build
 ```
 
-4. **Set up your database:**
+4. **Set up your databases:**
 
 ```sql
--- Create test database
+-- SQL Server: Create test database
 CREATE DATABASE CdcTestDB;
 
 -- Enable CDC
 USE CdcTestDB;
 EXEC sys.sp_cdc_enable_db;
+```
+
+```sql
+-- PostgreSQL: Create trace database
+CREATE DATABASE cdcme;
+
+-- Run initialization script
+\i scripts/create-trace-database-postgresql.sql
+```
+
+5. **Configure connection strings:**
+
+Update [`cdc-api/appsettings.json`](cdc-api/appsettings.json) or set environment variables:
+
+```bash
+export TEST_DB_CONNECTION="Server=localhost;Database=CdcTestDB;User Id=sa;Password=YourPassword;TrustServerCertificate=true;"
+export CDCME_DB_CONNECTION="Host=localhost;Database=cdcme;Username=cdcme;Password=your_password"
 ```
 
 ### Basic Usage
@@ -130,6 +205,7 @@ dotnet run
 ### Getting Started
 
 - **[Getting Started Guide](docs/getting-started.md)** - Complete setup and first-run instructions
+- **[Docker Guide](docs/docker.md)** - Docker and Docker Compose usage
 - **[Database Setup](docs/database-setup.md)** - SQL Server and CDC configuration
 - **[Usage Examples](docs/usage-examples.md)** - Practical workflows and scenarios
 
@@ -140,11 +216,11 @@ dotnet run
 - **[CLI Tool](docs/cli-tool.md)** - Command-line interface reference
 - **[Web API](docs/web-api.md)** - REST API endpoints and usage
 
-### Advanced Topics
+### Deployment & Operations
 
-- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
+- **[Docker Guide](docs/docker.md)** - Container deployment and orchestration
 - **[Deployment](docs/deployment.md)** - Production deployment strategies
-- **[Configuration](docs/configuration.md)** - Advanced configuration options
+- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
 
 ## 🔄 Core Workflow
 

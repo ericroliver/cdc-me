@@ -1,20 +1,38 @@
 -- Create trace database and schema for PostgreSQL
 --
+-- USAGE INSTRUCTIONS:
+-- 1. Connect to your PostgreSQL server using the 'postgres' database
+-- 2. Run the CREATE DATABASE section of this script
+-- 3. Connect to the newly created 'cdcme' database
+-- 4. Run the rest of this script to create tables and schema
+--
 -- IMPORTANT: This script requires a connection string environment variable.
 -- Create a .env file in the project root with:
--- POSTGRES_CONNECTION_STRING=Host=your-host;Database=postgres;Username=your-username;Password=your-password
---
--- Use the POSTGRES_CONNECTION_STRING environment variable to connect to your PostgreSQL server.
+-- POSTGRES_CONNECTION_STRING=Host=your-host;Database=cdcme;Username=your-username;Password=your-password
 
--- Create trace database if it doesn't exist
-SELECT 'CREATE DATABASE cdc_tracedb'
-WHERE NOT EXISTS (SELECT 1
-FROM pg_database
-WHERE datname = 'cdc_tracedb')
-\gexec
+-- ========================================
+-- PART 1: CREATE DATABASE (Run while connected to 'postgres' database)
+-- ========================================
+-- STOP HERE after running this section and connect to 'cdcme' database before continuing
 
--- Connect to the trace database
-\c cdc_tracedb;
+CREATE DATABASE cdcme
+    WITH
+    OWNER = postgres
+    ENCODING = 'UTF8'
+    LC_COLLATE = 'en_US.utf8'
+    LC_CTYPE = 'en_US.utf8'
+    TABLESPACE = pg_default
+    CONNECTION LIMIT = -1;
+
+-- ========================================
+-- IMPORTANT: Now connect to the 'cdcme' database before running the rest!
+-- In DBeaver: Right-click server -> Create -> Connection -> Use 'cdcme' as database name
+-- In psql: \c cdcme
+-- ========================================
+
+-- ========================================
+-- PART 2: CREATE TABLES AND SCHEMA (Run while connected to 'cdcme' database)
+-- ========================================
 
 -- Create tables
 CREATE TABLE
@@ -26,8 +44,6 @@ IF NOT EXISTS trace_sessions
 (255) NOT NULL UNIQUE,
     test_database VARCHAR
 (128) NOT NULL,
-    test_connection_string VARCHAR
-(1000) NOT NULL,
     snapshot_name VARCHAR
 (128),
     start_time TIMESTAMP

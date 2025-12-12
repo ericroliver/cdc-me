@@ -38,7 +38,7 @@ public class TraceControllerTests : IClassFixture<WebApplicationFactory<Program>
                     Configuration = new TraceConfiguration()
                 };
 
-                mockTraceManager.Setup(x => x.StartTraceAsync(It.IsAny<TraceConfiguration>(), It.IsAny<string>()))
+                mockTraceManager.Setup(x => x.StartTraceAsync(It.IsAny<TraceConfiguration>()))
                     .ReturnsAsync(testSession);
 
                 mockTraceManager.Setup(x => x.StopTraceAsync(It.IsAny<Guid>()))
@@ -46,6 +46,16 @@ public class TraceControllerTests : IClassFixture<WebApplicationFactory<Program>
 
                 mockTraceManager.Setup(x => x.IsTraceRunningAsync(It.IsAny<string>()))
                     .ReturnsAsync(true);
+
+                mockTraceManager.Setup(x => x.GetTraceStatusAsync(It.IsAny<Guid>()))
+                    .ReturnsAsync(new TraceStatus
+                    {
+                        SessionId = testSession.SessionId,
+                        State = TraceStatus.Running,
+                        StartedAt = testSession.StartTime,
+                        EventCount = 100,
+                        LastError = null
+                    });
 
                 mockTraceManager.Setup(x => x.ExportTraceDataAsync(It.IsAny<Guid>(), It.IsAny<string>()))
                     .ReturnsAsync("/path/to/export");
@@ -79,7 +89,6 @@ public class TraceControllerTests : IClassFixture<WebApplicationFactory<Program>
         {
             SessionName = "TestSession",
             DatabaseName = "TestDB",
-            ConnectionString = "Server=test;Database=test;Trusted_Connection=true;",
             MaxFileSize = 100,
             MaxFiles = 5
         };
@@ -98,8 +107,7 @@ public class TraceControllerTests : IClassFixture<WebApplicationFactory<Program>
         var request = new StartTraceRequest
         {
             SessionName = "",
-            DatabaseName = "",
-            ConnectionString = ""
+            DatabaseName = ""
         };
 
         // Act
@@ -154,8 +162,7 @@ public class TraceControllerTests : IClassFixture<WebApplicationFactory<Program>
         // Arrange
         var request = new ExportTraceRequest
         {
-            SessionName = "TestSession",
-            TraceConnectionString = "Server=test;Database=trace;Trusted_Connection=true;"
+            SessionName = "TestSession"
         };
 
         // Act

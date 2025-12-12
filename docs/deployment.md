@@ -492,10 +492,102 @@ if (builder.Environment.IsProduction())
 }
 ```
 
+#### Docker Compose Deployment
+
+The CDC Testing Framework includes comprehensive Docker Compose configurations for both production and development environments. See the [Docker Guide](docker.md) for complete documentation.
+
+**Quick Start:**
+
+```bash
+# Production deployment
+docker-compose up -d
+
+# Development deployment with hot-reload
+docker-compose -f docker-compose.dev.yml up -d
+
+# View logs
+docker-compose logs -f cdc-api
+
+# Stop services
+docker-compose down
+```
+
+**Services Included:**
+- `cdc-api`: CDC Testing Framework API
+- `sqlserver`: SQL Server 2022 (test database with CDC)
+- `postgres`: PostgreSQL 16 (trace database)
+- `pgadmin`: PostgreSQL management UI (development only)
+
+**Configuration:**
+
+Create a `.env` file from `.env.example`:
+
+```bash
+cp .env.example .env
+```
+
+Key environment variables:
+
+```bash
+# Application
+VERSION=1.0.0
+ASPNETCORE_ENVIRONMENT=Production
+API_PORT=8080
+
+# SQL Server
+SQL_SA_PASSWORD=YourStrong@Passw0rd
+SQL_PORT=1433
+
+# PostgreSQL
+POSTGRES_PASSWORD=cdcme_password
+POSTGRES_PORT=5432
+
+# Connection strings (for containers)
+TEST_DB_CONNECTION=Server=sqlserver;Database=CdcTestDB;User Id=sa;Password=${SQL_SA_PASSWORD};TrustServerCertificate=true;
+CDCME_DB_CONNECTION=Host=postgres;Database=cdcme;Username=cdcme;Password=${POSTGRES_PASSWORD}
+```
+
+**Health Checks:**
+
+All services include health checks:
+
+```bash
+# Check service health
+docker-compose ps
+
+# Manual health check
+curl http://localhost:8080/health
+```
+
+**Data Persistence:**
+
+Docker volumes ensure data persistence:
+
+```bash
+# List volumes
+docker volume ls | grep cdc-me
+
+# Backup SQL Server data
+docker run --rm -v cdc-me_sqlserver-data:/data -v $(pwd):/backup alpine tar czf /backup/sqlserver-backup.tar.gz /data
+
+# Backup PostgreSQL data
+docker-compose exec postgres pg_dump -U cdcme cdcme > ./backups/cdcme-backup.sql
+```
+
+**Production Considerations:**
+
+1. **Secrets Management**: Use Docker secrets or external secret management
+2. **Resource Limits**: Configure memory and CPU limits
+3. **Monitoring**: Integrate with monitoring solutions
+4. **Backups**: Implement automated backup strategies
+5. **Updates**: Use specific version tags instead of `latest`
+
+For detailed Docker Compose documentation, troubleshooting, and advanced configurations, see the [Docker Guide](docker.md).
+
 #### Docker Secrets
 
 ```yaml
-# docker-compose.yml
+# docker-compose.yml with secrets
 version: "3.8"
 services:
   cdc-api:

@@ -10,7 +10,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/bin/Debug/net6.0/cdc-proto.dll",
+            "program": "${workspaceFolder}/bin/Debug/net9.0/cdc-proto.dll",
             "args": [
                 "--init"
             ],
@@ -24,15 +24,11 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/cdc-api/bin/Debug/net6.0/cdc-api.dll",
+            "program": "${workspaceFolder}/cdc-api/bin/Debug/net9.0/cdc-api.dll",
             "args": [],
             "cwd": "${workspaceFolder}/cdc-api",
             "console": "internalConsole",
             "stopAtEntry": false,
-            "serverReadyAction": {
-                "action": "openExternally",
-                "pattern": "\\bNow listening on:\\s+(https?://\\S+)"
-            },
             "env": {
                 "ASPNETCORE_ENVIRONMENT": "Development"
             }
@@ -42,7 +38,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/cdc-api/bin/Debug/net6.0/cdc-api.dll",
+            "program": "${workspaceFolder}/cdc-api/bin/Debug/net9.0/cdc-api.dll",
             "args": [],
             "cwd": "${workspaceFolder}/cdc-api",
             "console": "internalConsole",

@@ -41,13 +41,13 @@ public class TestWorkflowControllerTests : IClassFixture<WebApplicationFactory<P
                     Configuration = new TraceConfiguration()
                 };
 
-                mockSnapshotManager.Setup(x => x.CreateSnapshotAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                mockSnapshotManager.Setup(x => x.CreateSnapshotAsync(It.IsAny<string>(), It.IsAny<string>()))
                     .ReturnsAsync(new SnapshotResult { Success = true, Message = "Snapshot created successfully" });
 
-                mockSnapshotManager.Setup(x => x.RestoreSnapshotAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                mockSnapshotManager.Setup(x => x.RestoreSnapshotAsync(It.IsAny<string>(), It.IsAny<string>()))
                     .ReturnsAsync(new SnapshotResult { Success = true, Message = "Snapshot restored successfully" });
 
-                mockTraceManager.Setup(x => x.StartTraceAsync(It.IsAny<TraceConfiguration>(), It.IsAny<string>()))
+                mockTraceManager.Setup(x => x.StartTraceAsync(It.IsAny<TraceConfiguration>()))
                     .ReturnsAsync(testSession);
 
                 mockTraceManager.Setup(x => x.StopTraceAsync(It.IsAny<Guid>()))

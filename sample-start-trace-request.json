@@ -1,0 +1,29 @@
+{
+    "sessionName": "erp-workflow-test-2024",
+    "databaseName": "ErpTestDatabase",
+    "connectionString": "Server=localhost;Database=ErpTestDatabase;Integrated Security=true;TrustServerCertificate=true;",
+    "maxFileSize": 100,
+    "maxFiles": 5,
+    "eventsToCapture": [
+        "SQL:BatchCompleted",
+        "SQL:StmtCompleted",
+        "RPC:Completed",
+        "Audit Login",
+        "Audit Logout"
+    ],
+    "filterCriteria": {
+        "DatabaseName": "ErpTestDatabase",
+        "ApplicationName": "CDC-Testing-Framework",
+        "MinDuration": 1000,
+        "ExcludeSystemObjects": true,
+        "IncludeSchemas": [
+            "dbo",
+            "sales",
+            "inventory"
+        ],
+        "ExcludeUsers": [
+            "sa",
+            "SYSTEM"
+        ]
+    }
+}

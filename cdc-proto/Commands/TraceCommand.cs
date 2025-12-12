@@ -34,24 +34,28 @@ namespace CdcProto.Commands
             // Stop trace command
             var stopCommand = new Command("stop", "Stop a trace session");
             var stopSessionOption = new Option<string>("--session", "Session name or ID") { IsRequired = true };
+            var stopTestConnectionOption = new Option<string>("--test-connection", "Test database connection string");
             var stopTraceConnectionOption = new Option<string>("--trace-connection", "Trace database connection string");
             var stopProviderOption = new Option<string>("--provider", () => "PostgreSQL", "Trace database provider");
 
             stopCommand.AddOption(stopSessionOption);
+            stopCommand.AddOption(stopTestConnectionOption);
             stopCommand.AddOption(stopTraceConnectionOption);
             stopCommand.AddOption(stopProviderOption);
-            stopCommand.SetHandler(StopTraceAsync, stopSessionOption, stopTraceConnectionOption, stopProviderOption);
+            stopCommand.SetHandler(StopTraceAsync, stopSessionOption, stopTestConnectionOption, stopTraceConnectionOption, stopProviderOption);
 
             // Status command
             var statusCommand = new Command("status", "Get trace session status");
             var statusSessionOption = new Option<string>("--session", "Session name or ID") { IsRequired = true };
+            var statusTestConnectionOption = new Option<string>("--test-connection", "Test database connection string");
             var statusTraceConnectionOption = new Option<string>("--trace-connection", "Trace database connection string");
             var statusProviderOption = new Option<string>("--provider", () => "PostgreSQL", "Trace database provider");
 
             statusCommand.AddOption(statusSessionOption);
+            statusCommand.AddOption(statusTestConnectionOption);
             statusCommand.AddOption(statusTraceConnectionOption);
             statusCommand.AddOption(statusProviderOption);
-            statusCommand.SetHandler(GetTraceStatusAsync, statusSessionOption, statusTraceConnectionOption, statusProviderOption);
+            statusCommand.SetHandler(GetTraceStatusAsync, statusSessionOption, statusTestConnectionOption, statusTraceConnectionOption, statusProviderOption);
 
             // List sessions command
             var listCommand = new Command("list", "List active trace sessions");
@@ -110,7 +114,7 @@ namespace CdcProto.Commands
                 };
 
                 Console.WriteLine($"Starting trace session '{session}' for database '{database}'...");
-                var traceSession = await traceManager.StartTraceAsync(config, testConnectionString);
+                var traceSession = await traceManager.StartTraceAsync(config);
 
                 Console.WriteLine($"✅ Successfully started trace session:");
                 Console.WriteLine($"   Session ID: {traceSession.SessionId}");
@@ -126,12 +130,13 @@ namespace CdcProto.Commands
             }
         }
 
-        private static async Task StopTraceAsync(string session, string traceConnection, string provider)
+        private static async Task StopTraceAsync(string session, string testConnection, string traceConnection, string provider)
         {
             var logger = CreateLogger();
 
             try
             {
+                var testConnectionString = GetTestConnectionString(testConnection);
                 var traceConnectionString = GetTraceConnectionString(traceConnection, provider);
                 var traceProvider = CreateTraceProvider(provider, traceConnectionString, logger);
 
@@ -146,7 +151,7 @@ namespace CdcProto.Commands
                     traceSession = await traceProvider.GetSessionByNameAsync(session);
                 }
 
-                var testDac = new SimpleDac(traceSession.TestConnectionString, DatabaseProvider.SqlServer, logger);
+                var testDac = new SimpleDac(testConnectionString, DatabaseProvider.SqlServer, logger);
                 var traceManager = new TraceManager(testDac, traceProvider, logger);
 
                 Console.WriteLine($"Stopping trace session '{traceSession.SessionName}'...");
@@ -166,12 +171,13 @@ namespace CdcProto.Commands
             }
         }
 
-        private static async Task GetTraceStatusAsync(string session, string traceConnection, string provider)
+        private static async Task GetTraceStatusAsync(string session, string testConnection, string traceConnection, string provider)
         {
             var logger = CreateLogger();
 
             try
             {
+                var testConnectionString = GetTestConnectionString(testConnection);
                 var traceConnectionString = GetTraceConnectionString(traceConnection, provider);
                 var traceProvider = CreateTraceProvider(provider, traceConnectionString, logger);
 
@@ -186,7 +192,7 @@ namespace CdcProto.Commands
                     traceSession = await traceProvider.GetSessionByNameAsync(session);
                 }
 
-                var testDac = new SimpleDac(traceSession.TestConnectionString, DatabaseProvider.SqlServer, logger);
+                var testDac = new SimpleDac(testConnectionString, DatabaseProvider.SqlServer, logger);
                 var traceManager = new TraceManager(testDac, traceProvider, logger);
 
                 var status = await traceManager.GetTraceStatusAsync(traceSession.SessionId);

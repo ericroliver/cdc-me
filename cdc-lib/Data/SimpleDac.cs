@@ -362,5 +362,92 @@ namespace Softbase
                     dbConn.Close();
             }
         }
+
+        /// <summary>
+        /// Begins a database transaction
+        /// </summary>
+        /// <returns>A transaction wrapper that can be used to commit or rollback</returns>
+        public async Task<SimpleDacTransaction> BeginTransactionAsync()
+        {
+            var connection = OpenConnection();
+            var transaction = await Task.Run(() => connection.BeginTransaction());
+            return new SimpleDacTransaction(connection, transaction, _logger);
+        }
+    }
+
+    /// <summary>
+    /// Transaction wrapper for SimpleDac operations
+    /// </summary>
+    public class SimpleDacTransaction : IDisposable
+    {
+        private readonly IDbConnection _connection;
+        private readonly IDbTransaction _transaction;
+        private readonly ILogger _logger;
+        private bool _disposed = false;
+
+        public SimpleDacTransaction(IDbConnection connection, IDbTransaction transaction, ILogger logger)
+        {
+            _connection = connection;
+            _transaction = transaction;
+            _logger = logger;
+        }
+
+        /// <summary>
+        /// Commits the transaction
+        /// </summary>
+        public async Task CommitAsync()
+        {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(SimpleDacTransaction));
+
+            try
+            {
+                await Task.Run(() => _transaction.Commit());
+                _logger.LogDebug("Transaction committed successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to commit transaction");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Rolls back the transaction
+        /// </summary>
+        public async Task RollbackAsync()
+        {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(SimpleDacTransaction));
+
+            try
+            {
+                await Task.Run(() => _transaction.Rollback());
+                _logger.LogDebug("Transaction rolled back successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to rollback transaction");
+                throw;
+            }
+        }
+
+        public void Dispose()
+        {
+            if (!_disposed)
+            {
+                try
+                {
+                    _transaction?.Dispose();
+                    _connection?.Close();
+                    _connection?.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error disposing transaction resources");
+                }
+                _disposed = true;
+            }
+        }
     }
 }

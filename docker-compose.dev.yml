@@ -1,0 +1,126 @@
+# Docker Compose configuration for CDC Testing Framework - Development
+# Extends docker-compose.yml with development-specific settings
+
+version: '3.8'
+
+services:
+  # CDC Testing Framework API - Development Configuration
+  cdc-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: build  # Use build stage for hot reload
+      args:
+        DOTNET_VERSION: "9.0"
+    image: cdc-api:dev
+    container_name: cdc-api-dev
+    ports:
+      - "8080:8080"
+      - "8081:8081"  # Additional port for debugging
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - TEST_DB_CONNECTION=Server=sqlserver;Database=CdcTestDB;User Id=sa;Password=${SQL_SA_PASSWORD:-YourStrong@Passw0rd};TrustServerCertificate=true;
+      - CDCME_DB_CONNECTION=Host=postgres;Database=cdcme;Username=cdcme;Password=${POSTGRES_PASSWORD:-cdcme_password}
+      - TEST_DB_PROVIDER=SqlServer
+      - CDCME_DB_PROVIDER=PostgreSQL
+      - Logging__LogLevel__Default=Debug
+      - Logging__LogLevel__Microsoft.AspNetCore=Information
+    volumes:
+      # Mount source code for hot reload (requires dotnet watch)
+      - ./cdc-api:/src/cdc-api:ro
+      - ./cdc-lib:/src/cdc-lib:ro
+      - ./cdc-proto:/src/cdc-proto:ro
+      # Mount for local development artifacts
+      - ./artifacts:/app/artifacts
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - cdc-network
+    restart: unless-stopped
+    command: ["dotnet", "watch", "run", "--project", "/src/cdc-api/cdc-api.csproj", "--no-launch-profile"]
+
+  # SQL Server - Development Configuration
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: cdc-sqlserver-dev
+    ports:
+      - "1433:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=${SQL_SA_PASSWORD:-YourStrong@Passw0rd}
+      - MSSQL_PID=Developer
+      - MSSQL_AGENT_ENABLED=true
+      - MSSQL_COLLATION=SQL_Latin1_General_CP1_CI_AS
+    volumes:
+      - sqlserver-dev-data:/var/opt/mssql
+      - ./scripts:/scripts:ro
+      - ./backups:/backups
+    networks:
+      - cdc-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $${MSSQL_SA_PASSWORD} -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # PostgreSQL - Development Configuration
+  postgres:
+    image: postgres:16-alpine
+    container_name: cdc-postgres-dev
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=cdcme
+      - POSTGRES_USER=cdcme
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-cdcme_password}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF8
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+      - ./scripts/create-trace-database-postgresql.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./backups:/backups
+    networks:
+      - cdc-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cdcme -d cdcme"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # pgAdmin - PostgreSQL Management UI (Development only)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: cdc-pgadmin
+    ports:
+      - "5050:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL:-admin@cdcme.local}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD:-admin}
+      - PGADMIN_CONFIG_SERVER_MODE=False
+      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    networks:
+      - cdc-network
+    restart: unless-stopped
+    depends_on:
+      - postgres
+
+volumes:
+  sqlserver-dev-data:
+    driver: local
+  postgres-dev-data:
+    driver: local
+  pgadmin-data:
+    driver: local
+
+networks:
+  cdc-network:
+    driver: bridge

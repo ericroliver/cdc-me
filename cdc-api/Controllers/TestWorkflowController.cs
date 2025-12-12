@@ -79,8 +79,7 @@ public class TestWorkflowController : ControllerBase
             {
                 var snapshotResult = await _snapshotManager.CreateSnapshotAsync(
                     request.DatabaseName,
-                    request.BaselineSnapshotName,
-                    request.ConnectionString);
+                    request.BaselineSnapshotName);
 
                 if (!snapshotResult.Success)
                     throw new Exception($"Failed to create baseline snapshot: {snapshotResult.Message}");
@@ -107,14 +106,13 @@ public class TestWorkflowController : ControllerBase
                 {
                     SessionName = request.TraceSessionName,
                     DatabaseName = request.DatabaseName,
-                    ConnectionString = request.ConnectionString,
                     MaxFileSize = request.TraceConfig?.MaxFileSize ?? 100,
                     MaxFiles = request.TraceConfig?.MaxFiles ?? 5,
                     EventsToCapture = request.TraceConfig?.EventsToCapture ?? new List<string> { "sql_statement_completed" },
                     FilterCriteria = request.TraceConfig?.FilterCriteria ?? new Dictionary<string, object>()
                 };
 
-                var traceResult = await _traceManager.StartTraceAsync(config, request.ConnectionString);
+                var traceResult = await _traceManager.StartTraceAsync(config);
                 // TraceManager.StartTraceAsync returns TraceSession, so we assume success if no exception
                 _logger.LogInformation("Trace started successfully with SessionId: {SessionId}", traceResult.SessionId);
 
@@ -202,8 +200,7 @@ public class TestWorkflowController : ControllerBase
             {
                 var snapshotResult = await _snapshotManager.CreateSnapshotAsync(
                     request.DatabaseName,
-                    request.TestSnapshotName,
-                    request.ConnectionString);
+                    request.TestSnapshotName);
 
                 if (!snapshotResult.Success)
                     throw new Exception($"Failed to create test snapshot: {snapshotResult.Message}");
@@ -216,8 +213,7 @@ public class TestWorkflowController : ControllerBase
             {
                 var restoreResult = await _snapshotManager.RestoreSnapshotAsync(
                     request.DatabaseName,
-                    request.BaselineSnapshotName,
-                    request.ConnectionString);
+                    request.BaselineSnapshotName);
 
                 if (!restoreResult.Success)
                     throw new Exception($"Failed to restore baseline snapshot: {restoreResult.Message}");

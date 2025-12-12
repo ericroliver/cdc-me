@@ -6,6 +6,13 @@ using System.Linq;
 
 namespace Softbase.Cdc
 {
+    public class CdcCaptureResult
+    {
+        public IDictionary<string, IEnumerable<IDictionary<string, object>>> Data { get; set; } = new Dictionary<string, IEnumerable<IDictionary<string, object>>>();
+        public List<string> Errors { get; set; } = new List<string>();
+        public bool IsSuccess { get; set; }
+    }
+
     public class CdcDataUtilities
     {
 
@@ -79,32 +86,57 @@ namespace Softbase.Cdc
 
         //}
 
-        public static IDictionary<string, IEnumerable<IDictionary<string, object>>> BuildNetProfile(SimpleDac dac, IEnumerable<SqlTable> tableResult, ILogger logger)
+        public static CdcCaptureResult BuildNetProfile(SimpleDac dac, IEnumerable<SqlTable> tableResult, ILogger logger)
         {
             var allResults = new Dictionary<string, IEnumerable<IDictionary<string, object>>>();
+            var errors = new List<string>();
 
             foreach (var table in tableResult)
             {
-
                 if (!table.HasPrimaryKey)
                     continue;
 
-                var tableSelect = GetNetSqlFromTemplate(table.Schema, table.Name);
+                var tableSelect = GetChangesSqlFromTemplate(table.Schema, table.Name);
 
                 try
                 {
                     var tableResults = dac.ExecuteReader<IEnumerable<IDictionary<string, object>>>(tableSelect, (reader) =>
                     {
                         var models = new List<IDictionary<string, object>>();
+                        var changesByKey = new Dictionary<string, List<IDictionary<string, object>>>();
+
+                        // First pass: collect all changes grouped by primary key
                         while (reader.Read())
                         {
                             var model = new Dictionary<string, object>();
-
                             for (var i = 0; i < reader.FieldCount; i++)
                                 model[reader.GetName(i)] = reader.GetValue(i);
 
-                            models.Add(model);
+                            // Get primary key value(s) to group changes
+                            var pkValue = GetPrimaryKeyValue(model, table);
+                            if (!changesByKey.ContainsKey(pkValue))
+                                changesByKey[pkValue] = new List<IDictionary<string, object>>();
+
+                            changesByKey[pkValue].Add(model);
                         }
+
+                        // Second pass: process changes to extract only changed fields with old/new values
+                        foreach (var kvp in changesByKey)
+                        {
+                            // Sort by LSN (binary) - convert to byte array for comparison
+                            var changes = kvp.Value.OrderBy(c =>
+                            {
+                                var lsn = c["__$start_lsn"];
+                                if (lsn is byte[] bytes)
+                                    return Convert.ToHexString(bytes);
+                                return lsn?.ToString() ?? "";
+                            }).ToList();
+
+                            var processedChange = ProcessChangesForRecord(changes, table);
+                            if (processedChange != null)
+                                models.Add(processedChange);
+                        }
+
                         return models;
                     });
 
@@ -113,20 +145,26 @@ namespace Softbase.Cdc
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex, $"Unable to retrieve net changes for {table.Schema}.{table.Name}");
+                    var errorMessage = $"Unable to retrieve net changes for {table.Schema}.{table.Name}: {ex.Message}";
+                    logger.LogError(ex, errorMessage);
+                    errors.Add(errorMessage);
                 }
             }
 
-            return allResults;
+            return new CdcCaptureResult
+            {
+                Data = allResults,
+                Errors = errors,
+                IsSuccess = errors.Count == 0
+            };
         }
 
         private static string GetNetSqlFromTemplate(string schema, string tableName)
         {
-
             /*
              declare @min BINARY(10), @max BINARY(10);
 
-             select @min = sys.fn_cdc_get_min_lsn('dbo_WO'), @max = sys.fn_cdc_get_max_lsn() 
+             select @min = sys.fn_cdc_get_min_lsn('dbo_WO'), @max = sys.fn_cdc_get_max_lsn()
              print @min
              print @max
 
@@ -138,6 +176,126 @@ namespace Softbase.Cdc
             sb.AppendLine($"select * from cdc.fn_cdc_get_net_changes_{schema}_{tableName}(@min, @max, 'all')");
 
             return sb.ToString();
+        }
+
+        private static string GetChangesSqlFromTemplate(string schema, string tableName)
+        {
+            /*
+             Gets all changes including old and new values for updates
+             This allows us to identify exactly which fields changed
+            */
+            var sb = new StringBuilder();
+            sb.AppendLine("declare @min BINARY(10), @max BINARY(10);");
+            sb.AppendLine($"select @min = sys.fn_cdc_get_min_lsn('{schema}_{tableName}'), @max = sys.fn_cdc_get_max_lsn()");
+            sb.AppendLine($"select * from cdc.fn_cdc_get_all_changes_{schema}_{tableName}(@min, @max, 'all update old')");
+
+            return sb.ToString();
+        }
+
+        private static string GetPrimaryKeyValue(IDictionary<string, object> record, SqlTable table)
+        {
+            // For simplicity, we'll use the first primary key column
+            // In a more robust implementation, we'd handle composite keys properly
+            var pkIndex = table.Indexes.FirstOrDefault(i => i.IndexType.Contains("primary"));
+            if (pkIndex == null)
+                return "unknown";
+
+            // Extract the first key column name from index_keys (format like "column1, column2")
+            var keyColumn = pkIndex.IndexKeys.Split(',')[0].Trim();
+            var pkValue = record.ContainsKey(keyColumn) ? record[keyColumn]?.ToString() : "null";
+
+            return pkValue ?? "null";
+        }
+
+        private static IDictionary<string, object> ProcessChangesForRecord(List<IDictionary<string, object>> changes, SqlTable table)
+        {
+            if (changes.Count == 0)
+                return null;
+
+            var result = new Dictionary<string, object>();
+            var lastChange = changes.Last();
+
+            // Add metadata
+            result["__$operation"] = lastChange["__$operation"];
+            result["__$start_lsn"] = lastChange["__$start_lsn"];
+            result["__$table"] = $"{table.Schema}.{table.Name}";
+
+            // Get primary key for identification
+            var pkIndex = table.Indexes.FirstOrDefault(i => i.IndexType.Contains("primary"));
+            if (pkIndex != null)
+            {
+                var keyColumn = pkIndex.IndexKeys.Split(',')[0].Trim();
+                if (lastChange.ContainsKey(keyColumn))
+                    result["__$primary_key"] = lastChange[keyColumn];
+            }
+
+            var operation = Convert.ToInt32(lastChange["__$operation"]);
+
+            if (operation == 1) // Insert
+            {
+                // For inserts, capture all non-null values
+                foreach (var kvp in lastChange)
+                {
+                    if (!kvp.Key.StartsWith("__$") && kvp.Value != null && kvp.Value != DBNull.Value)
+                    {
+                        result[$"new_{kvp.Key}"] = kvp.Value;
+                    }
+                }
+            }
+            else if (operation == 2) // Delete
+            {
+                // For deletes, capture the deleted values
+                foreach (var kvp in lastChange)
+                {
+                    if (!kvp.Key.StartsWith("__$") && kvp.Value != null && kvp.Value != DBNull.Value)
+                    {
+                        result[$"old_{kvp.Key}"] = kvp.Value;
+                    }
+                }
+            }
+            else if (operation == 3 || operation == 4) // Update (before/after)
+            {
+                // For updates, we need to find the before and after records
+                var beforeRecord = changes.FirstOrDefault(c => Convert.ToInt32(c["__$operation"]) == 3);
+                var afterRecord = changes.FirstOrDefault(c => Convert.ToInt32(c["__$operation"]) == 4);
+
+                if (beforeRecord != null && afterRecord != null)
+                {
+                    // Compare fields to find what actually changed
+                    foreach (var key in afterRecord.Keys)
+                    {
+                        if (key.StartsWith("__$"))
+                            continue;
+
+                        var oldValue = beforeRecord.ContainsKey(key) ? beforeRecord[key] : null;
+                        var newValue = afterRecord[key];
+
+                        // Check if the value actually changed
+                        if (!AreValuesEqual(oldValue, newValue))
+                        {
+                            result[$"old_{key}"] = oldValue;
+                            result[$"new_{key}"] = newValue;
+                        }
+                    }
+                }
+            }
+
+            // Only return the record if it has actual data changes
+            return result.Keys.Any(k => k.StartsWith("old_") || k.StartsWith("new_")) ? result : null;
+        }
+
+        private static bool AreValuesEqual(object value1, object value2)
+        {
+            if (value1 == null && value2 == null)
+                return true;
+            if (value1 == null || value2 == null)
+                return false;
+            if (value1 == DBNull.Value && value2 == DBNull.Value)
+                return true;
+            if (value1 == DBNull.Value || value2 == DBNull.Value)
+                return false;
+
+            return value1.Equals(value2);
         }
 
         public static void EnableTableCdc(SimpleDac dac, IEnumerable<SqlTable> tableResult, ILogger logger)

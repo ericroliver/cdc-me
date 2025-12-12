@@ -278,7 +278,7 @@ namespace CdcProto.Commands
                     EventTypes = new[] { "sql_batch_completed", "rpc_completed" },
                     RingBufferSizeMB = 64
                 };
-                var traceSession = await traceManager.StartTraceAsync(config, testConnectionString);
+                var traceSession = await traceManager.StartTraceAsync(config);
                 Console.WriteLine($"✅ Trace session started: {traceSession.SessionId}");
 
                 // Step 3: Wait for user to execute test scenarios

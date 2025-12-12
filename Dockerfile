@@ -46,12 +46,18 @@ RUN dotnet publish "cdc-api/cdc-api.csproj" \
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION}-alpine AS runtime
 
-# Install additional packages if needed
+# Install ICU libraries for globalization support (required by Microsoft.Data.SqlClient)
+# and other necessary packages
 RUN apk add --no-cache \
+    icu-libs \
+    icu-data-full \
     ca-certificates \
     tzdata \
     file \
     && update-ca-certificates
+
+# Set environment variable to enable globalization
+ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
 # Create non-root user
 RUN addgroup -g 1001 -S appgroup && \
