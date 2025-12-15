@@ -1,6 +1,96 @@
 # CDC Testing Framework
 
+> **Note**
+>
+> This is a research project used to explore what's possible in Microsoft SQL Server using **Snapshots**, **CDC**, and **Traces**.
+> The project was started by a human, but the bots have taken over — all new code is AI-generated. The project is not fully functional and is only marginally useful.
+>
+> **⚠️ SECURITY WARNING - INTERNAL USE ONLY ⚠️**
+>
+> **cdcme** is intended as **internal tooling** operating against **disposable test resources only**.
+>
+> **Security Limitations:**
+>
+> - ❌ **NO AUTHENTICATION** - API endpoints are completely unprotected
+> - ❌ **NO AUTHORIZATION** - Anyone with network access can execute operations
+> - ❌ **NOT FOR PRODUCTION** - Do not connect to production databases or databases with sensitive data
+> - ❌ **NOT EXTERNALLY EXPOSED** - Must run on isolated internal networks only
+> - ⚠️ **SQL INJECTION PROTECTIONS** - While SQL injection vulnerabilities have been mitigated, this tool should still only be used in controlled environments
+>
+> **Recommended Security Practices:**
+>
+> - Run only on isolated development/test networks
+> - Use strong, unique passwords (see `.env.example` for guidance)
+> - Never expose the API to the internet
+> - Only connect to disposable test databases
+> - Implement network-level access controls (firewall rules, VPNs)
+> - Consider adding authentication before any broader deployment
+>
+> **Tested so far:**
+>
+> - **Snapshots**: create, restore, delete, list
+> - **Trace**: enable/disable and persist traces to the `cdcme` database
+> - **CDC**: enable/disable and compare two captures
+>   - **Pass**: captures are identical
+>   - **Fail**: differences detected
+
 A comprehensive .NET solution for database change validation using SQL Server's Change Data Capture (CDC) functionality. This framework enables teams to create repeatable testing environments for validating data consistency across different implementations, optimizations, and database changes.
+
+## Quick Start
+
+### Prerequisites
+
+- .NET 9.0 SDK or later
+- Docker (for running SQL Server)
+- Git
+
+### Setup for Development
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd cdc-me
+   ```
+
+2. **Set up local linting** (prevents CI failures)
+   ```bash
+   # The pre-commit hook is already installed
+   # Just make sure it's executable
+   chmod +x .git/hooks/pre-commit
+   
+   # Test the lint check
+   ./scripts/lint-check.sh
+   ```
+
+3. **Configure your editor** - See [Local Lint Setup Guide](docs/local-lint-setup.md)
+
+4. **Start development**
+   ```bash
+   # Format code automatically
+   dotnet format cdc-me.sln
+   
+   # Build and test
+   dotnet build cdc-me.sln
+   dotnet test cdc-me.sln
+   ```
+
+📖 **Important:** Read the [Local Lint Setup Guide](docs/local-lint-setup.md) to ensure you catch all lint failures locally before creating PRs.
+
+## Use Case
+
+The initial use case was developed to support entire rewrites of stored procedures. The basic idea is:
+
+1. Capture a snapshot
+2. Turn on CDC
+3. Run your test workload against the test database with the original proc
+4. Turn off CDC and capture the change data
+5. refactor the proc
+6. restore the snapshot
+7. apply the refactored proc
+8. Turn on CDC
+9. Run your workload against the database with the rewritten proc applied
+10. Turn off CDC and capture the change data
+11. Run the CDC endpoint to compare the old and new captured data. The endpoint expects identical captures and will pass/fails based upon that
 
 ## 🎯 Project Overview
 
@@ -50,11 +140,13 @@ graph TB
 ### Prerequisites
 
 **Option 1: Docker (Recommended)**
+
 - **Docker**: Version 20.10 or later
 - **Docker Compose**: Version 2.0 or later
 - **System**: 4GB RAM minimum (8GB recommended)
 
 **Option 2: Local Development**
+
 - **.NET 9.0** or later
 - **SQL Server 2016+** (Standard/Enterprise/Developer Edition)
 - **SQL Server Agent** (must be running)

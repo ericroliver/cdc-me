@@ -1,12 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.SqlClient;
-using cdc_api.Models;
-using Softbase;
-using Softbase.Cdc;
-using Softbase.Cdc.Data;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using cdc_api.Models;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using Softbase;
+using Softbase.Cdc;
+using Softbase.Cdc.Data;
 
 namespace cdc_api.Controllers;
 

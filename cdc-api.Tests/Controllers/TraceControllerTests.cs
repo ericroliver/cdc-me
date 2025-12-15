@@ -1,13 +1,13 @@
+using System.Net;
+using System.Net.Http.Json;
+using cdc_api.Controllers;
+using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
-using System.Net.Http.Json;
-using System.Net;
-using Xunit;
-using FluentAssertions;
 using Moq;
-using Softbase.Cdc.Trace;
 using Softbase.Cdc.Models;
-using cdc_api.Controllers;
+using Softbase.Cdc.Trace;
+using Xunit;
 
 namespace cdc_api.Tests.Controllers;
 

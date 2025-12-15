@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Softbase.Cdc.Models;
-using System.Diagnostics;
-using System.Text.RegularExpressions;
 
 namespace Softbase.Cdc.Trace
 {

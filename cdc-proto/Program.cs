@@ -1,12 +1,12 @@
-﻿using System.CommandLine;
+using System.CommandLine;
 using System.CommandLine.Builder;
 using System.CommandLine.Parsing;
+using CdcProto.Commands;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Softbase;
 using Softbase.Cdc.Data;
-using CdcProto.Commands;
 
 
 class Program

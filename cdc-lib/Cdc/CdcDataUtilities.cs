@@ -1,8 +1,9 @@
-﻿using System;
-using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Linq;
+using System.Text;
+using Microsoft.Extensions.Logging;
+using Softbase.Cdc.Utilities;
 
 namespace Softbase.Cdc
 {
@@ -170,10 +171,14 @@ namespace Softbase.Cdc
 
              select * from cdc.fn_cdc_get_net_changes_dbo_WO(@min, @max, 'all')
             */
+            // Validate identifiers to prevent SQL injection
+            var validatedSchema = SqlIdentifierValidator.ValidateIdentifier(schema, "schema");
+            var validatedTableName = SqlIdentifierValidator.ValidateIdentifier(tableName, "table name");
+
             var sb = new StringBuilder();
             sb.AppendLine("declare @min BINARY(10), @max BINARY(10);");
-            sb.AppendLine($"select @min = sys.fn_cdc_get_min_lsn('{schema}_{tableName}'), @max = sys.fn_cdc_get_max_lsn()");
-            sb.AppendLine($"select * from cdc.fn_cdc_get_net_changes_{schema}_{tableName}(@min, @max, 'all')");
+            sb.AppendLine($"select @min = sys.fn_cdc_get_min_lsn('{validatedSchema}_{validatedTableName}'), @max = sys.fn_cdc_get_max_lsn()");
+            sb.AppendLine($"select * from cdc.fn_cdc_get_net_changes_{validatedSchema}_{validatedTableName}(@min, @max, 'all')");
 
             return sb.ToString();
         }
@@ -184,10 +189,14 @@ namespace Softbase.Cdc
              Gets all changes including old and new values for updates
              This allows us to identify exactly which fields changed
             */
+            // Validate identifiers to prevent SQL injection
+            var validatedSchema = SqlIdentifierValidator.ValidateIdentifier(schema, "schema");
+            var validatedTableName = SqlIdentifierValidator.ValidateIdentifier(tableName, "table name");
+
             var sb = new StringBuilder();
             sb.AppendLine("declare @min BINARY(10), @max BINARY(10);");
-            sb.AppendLine($"select @min = sys.fn_cdc_get_min_lsn('{schema}_{tableName}'), @max = sys.fn_cdc_get_max_lsn()");
-            sb.AppendLine($"select * from cdc.fn_cdc_get_all_changes_{schema}_{tableName}(@min, @max, 'all update old')");
+            sb.AppendLine($"select @min = sys.fn_cdc_get_min_lsn('{validatedSchema}_{validatedTableName}'), @max = sys.fn_cdc_get_max_lsn()");
+            sb.AppendLine($"select * from cdc.fn_cdc_get_all_changes_{validatedSchema}_{validatedTableName}(@min, @max, 'all update old')");
 
             return sb.ToString();
         }
@@ -305,12 +314,20 @@ namespace Softbase.Cdc
             {
                 if (table.Indexes.Count() > 0)
                 {
+                    // Validate identifiers to prevent SQL injection
+                    var validatedSchema = SqlIdentifierValidator.ValidateIdentifier(table.Schema, "schema");
+                    var validatedTableName = SqlIdentifierValidator.ValidateIdentifier(table.Name, "table name");
+
                     var index = table.Indexes.FirstOrDefault(i => i.IndexType.Contains("primary"));
-                    var enableTableCdc = string.Format(tableCdcOnTemplate, table.Schema, table.Name, index?.IndexName);
+                    var validatedIndexName = index?.IndexName != null
+                        ? SqlIdentifierValidator.ValidateIdentifier(index.IndexName, "index name")
+                        : null;
+
+                    var enableTableCdc = string.Format(tableCdcOnTemplate, validatedSchema, validatedTableName, validatedIndexName);
 
                     try
                     {
-                        logger.LogDebug($"enabling cdc for {table.Schema}.{table.Name}, index: {index?.IndexName} : {enableTableCdc}");
+                        logger.LogDebug($"enabling cdc for {validatedSchema}.{validatedTableName}, index: {validatedIndexName} : {enableTableCdc}");
                         var enableTableResult = dac.ExecuteCommand(enableTableCdc);
                     }
                     catch (Exception ex)
@@ -350,7 +367,11 @@ namespace Softbase.Cdc
 
         public static IEnumerable<SqlIndex> GetIndexes(SimpleDac dac, string schema, string tableName)
         {
-            var tableSelect = $"EXEC sp_helpindex '{schema}.{tableName}';";
+            // Validate identifiers to prevent SQL injection
+            var validatedSchema = SqlIdentifierValidator.ValidateIdentifier(schema, "schema");
+            var validatedTableName = SqlIdentifierValidator.ValidateIdentifier(tableName, "table name");
+
+            var tableSelect = $"EXEC sp_helpindex '{validatedSchema}.{validatedTableName}';";
             return dac.ExecuteReader<IEnumerable<SqlIndex>>(tableSelect, (reader) =>
             {
                 var models = new List<SqlIndex>();

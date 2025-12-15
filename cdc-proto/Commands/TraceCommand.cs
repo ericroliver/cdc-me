@@ -1,10 +1,10 @@
 using System.CommandLine;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using Softbase;
 using Softbase.Cdc.Data;
-using Softbase.Cdc.Trace;
 using Softbase.Cdc.Models;
-using Newtonsoft.Json;
+using Softbase.Cdc.Trace;
 
 namespace CdcProto.Commands
 {

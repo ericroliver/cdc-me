@@ -1,11 +1,11 @@
+using cdc_api.Data;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Xunit;
 using Softbase;
-using Softbase.Cdc.Data;
 using Softbase.Cdc.Configuration;
-using cdc_api.Data;
+using Softbase.Cdc.Data;
+using Xunit;
 
 namespace cdc_api.Tests.Integration
 {

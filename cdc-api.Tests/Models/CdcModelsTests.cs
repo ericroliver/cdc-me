@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
-using Xunit;
 using cdc_api.Models;
+using Xunit;
 
 namespace cdc_api.Tests.Models;
 
