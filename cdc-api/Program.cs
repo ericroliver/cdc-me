@@ -125,14 +125,29 @@ builder.Services.AddScoped<ICdcComparator, CdcComparator>(serviceProvider =>
     return new CdcComparator(testDbDac, traceProvider, logger, config);
 });
 
-// Add CORS for development
+// Add CORS configuration
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    // Development policy - permissive for local development
+    options.AddPolicy("Development", policy =>
     {
         policy.AllowAnyOrigin()
               .AllowAnyMethod()
               .AllowAnyHeader();
+    });
+
+    // Production policy - restricted to specific origins
+    // SECURITY: Update these origins to match your actual deployment URLs
+    options.AddPolicy("Production", policy =>
+    {
+        policy.WithOrigins(
+                "http://localhost:3000",  // Example: React dev server
+                "http://localhost:8080",  // Example: API itself
+                "https://your-production-domain.com"  // CHANGE THIS to your actual domain
+              )
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
     });
 });
 
@@ -147,7 +162,12 @@ if (app.Environment.IsDevelopment())
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "CDC Testing API v1");
         c.RoutePrefix = string.Empty; // Serve Swagger UI at root
     });
-    app.UseCors("AllowAll");
+    app.UseCors("Development");
+}
+else
+{
+    // Production environment
+    app.UseCors("Production");
 }
 
 app.UseHttpsRedirection();

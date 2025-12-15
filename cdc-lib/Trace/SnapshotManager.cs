@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Softbase.Cdc.Models;
+using Softbase.Cdc.Utilities;
 
 namespace Softbase.Cdc.Trace
 {
@@ -25,19 +26,23 @@ namespace Softbase.Cdc.Trace
 
             try
             {
+                // Validate identifiers to prevent SQL injection
+                var validatedDatabaseName = SqlIdentifierValidator.ValidateIdentifier(databaseName, "database name");
+                var validatedSnapshotName = SqlIdentifierValidator.ValidateIdentifier(snapshotName, "snapshot name");
+
                 // Check if snapshot already exists
-                if (await SnapshotExistsAsync(snapshotName))
+                if (await SnapshotExistsAsync(validatedSnapshotName))
                 {
                     return new SnapshotResult
                     {
                         Success = false,
-                        Message = $"Snapshot '{snapshotName}' already exists. Only one snapshot is allowed.",
-                        SnapshotName = snapshotName
+                        Message = $"Snapshot '{validatedSnapshotName}' already exists. Only one snapshot is allowed.",
+                        SnapshotName = validatedSnapshotName
                     };
                 }
 
                 // Get database file paths
-                var dataFiles = await GetDatabaseFilesAsync(databaseName);
+                var dataFiles = await GetDatabaseFilesAsync(validatedDatabaseName);
 
                 // Build CREATE DATABASE AS SNAPSHOT statement
                 var snapshotFiles = new List<string>();
@@ -49,18 +54,18 @@ namespace Softbase.Cdc.Trace
                 }
 
                 var createSnapshotSql = $@"
-                    CREATE DATABASE [{snapshotName}] ON
+                    CREATE DATABASE {SqlIdentifierValidator.EscapeIdentifier(validatedSnapshotName)} ON
                     {string.Join(",\n", snapshotFiles)}
-                    AS SNAPSHOT OF [{databaseName}];";
+                    AS SNAPSHOT OF {SqlIdentifierValidator.EscapeIdentifier(validatedDatabaseName)};";
 
                 await _dac.ExecuteCommandAsync(createSnapshotSql);
-                _logger.LogInformation("Successfully created snapshot {SnapshotName}", snapshotName);
+                _logger.LogInformation("Successfully created snapshot {SnapshotName}", validatedSnapshotName);
 
                 return new SnapshotResult
                 {
                     Success = true,
                     Message = "Snapshot created successfully",
-                    SnapshotName = snapshotName
+                    SnapshotName = validatedSnapshotName
                 };
             }
             catch (Exception ex)
@@ -82,39 +87,46 @@ namespace Softbase.Cdc.Trace
 
             try
             {
+                // Validate identifiers to prevent SQL injection
+                var validatedSnapshotName = SqlIdentifierValidator.ValidateIdentifier(snapshotName, "snapshot name");
+                var validatedTargetDatabaseName = SqlIdentifierValidator.ValidateIdentifier(targetDatabaseName, "target database name");
+
                 // Check if snapshot exists
-                if (!await SnapshotExistsAsync(snapshotName))
+                if (!await SnapshotExistsAsync(validatedSnapshotName))
                 {
                     return new SnapshotResult
                     {
                         Success = false,
-                        Message = $"Snapshot '{snapshotName}' does not exist",
-                        SnapshotName = snapshotName
+                        Message = $"Snapshot '{validatedSnapshotName}' does not exist",
+                        SnapshotName = validatedSnapshotName
                     };
                 }
 
-                // Check if target database exists
-                var databaseExistsSql = $"SELECT COUNT(1) FROM sys.databases WHERE name = '{targetDatabaseName}'";
-                var databaseExists = await _dac.ExecuteScalarAsync<int>(databaseExistsSql) > 0;
+                // Check if target database exists using parameterized query
+                const string databaseExistsSql = "SELECT COUNT(1) FROM sys.databases WHERE name = @databaseName";
+                var databaseExists = await _dac.ExecuteScalarAsync<int>(databaseExistsSql, new Dictionary<string, object>
+                {
+                    ["@databaseName"] = validatedTargetDatabaseName
+                }) > 0;
 
                 if (!databaseExists)
                 {
                     return new SnapshotResult
                     {
                         Success = false,
-                        Message = $"Target database '{targetDatabaseName}' does not exist. Cannot restore snapshot to non-existent database.",
-                        SnapshotName = snapshotName
+                        Message = $"Target database '{validatedTargetDatabaseName}' does not exist. Cannot restore snapshot to non-existent database.",
+                        SnapshotName = validatedSnapshotName
                     };
                 }
 
                 // Set database to single user mode
-                var setSingleUserSql = $"ALTER DATABASE [{targetDatabaseName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;";
+                var setSingleUserSql = $"ALTER DATABASE {SqlIdentifierValidator.EscapeIdentifier(validatedTargetDatabaseName)} SET SINGLE_USER WITH ROLLBACK IMMEDIATE;";
 
                 // Restore from snapshot
-                var restoreSql = $"use master;RESTORE DATABASE [{targetDatabaseName}] FROM DATABASE_SNAPSHOT = '{snapshotName}';";
+                var restoreSql = $"use master;RESTORE DATABASE {SqlIdentifierValidator.EscapeIdentifier(validatedTargetDatabaseName)} FROM DATABASE_SNAPSHOT = {SqlIdentifierValidator.EscapeIdentifier(validatedSnapshotName)};";
 
                 // Set back to multi user mode
-                var setMultiUserSql = $"ALTER DATABASE [{targetDatabaseName}] SET MULTI_USER;";
+                var setMultiUserSql = $"ALTER DATABASE {SqlIdentifierValidator.EscapeIdentifier(validatedTargetDatabaseName)} SET MULTI_USER;";
 
                 try
                 {
@@ -135,13 +147,13 @@ namespace Softbase.Cdc.Trace
                     }
                     throw;
                 }
-                _logger.LogInformation("Successfully restored snapshot {SnapshotName} to {TargetDatabase}", snapshotName, targetDatabaseName);
+                _logger.LogInformation("Successfully restored snapshot {SnapshotName} to {TargetDatabase}", validatedSnapshotName, validatedTargetDatabaseName);
 
                 return new SnapshotResult
                 {
                     Success = true,
                     Message = "Snapshot restored successfully",
-                    SnapshotName = snapshotName
+                    SnapshotName = validatedSnapshotName
                 };
             }
             catch (Exception ex)
@@ -187,29 +199,32 @@ namespace Softbase.Cdc.Trace
         {
             _logger.LogInformation("Dropping snapshot {SnapshotName}", snapshotName);
 
-            if (!await SnapshotExistsAsync(snapshotName))
+            // Validate identifier to prevent SQL injection
+            var validatedSnapshotName = SqlIdentifierValidator.ValidateIdentifier(snapshotName, "snapshot name");
+
+            if (!await SnapshotExistsAsync(validatedSnapshotName))
             {
-                _logger.LogWarning("Snapshot {SnapshotName} does not exist, nothing to drop", snapshotName);
+                _logger.LogWarning("Snapshot {SnapshotName} does not exist, nothing to drop", validatedSnapshotName);
                 return new SnapshotResult
                 {
                     Success = false,
-                    Message = $"Snapshot {snapshotName} does not exist, nothing to drop",
-                    SnapshotName = snapshotName
+                    Message = $"Snapshot {validatedSnapshotName} does not exist, nothing to drop",
+                    SnapshotName = validatedSnapshotName
                 };
             }
 
-            var dropSnapshotSql = $"DROP DATABASE [{snapshotName}];";
+            var dropSnapshotSql = $"DROP DATABASE {SqlIdentifierValidator.EscapeIdentifier(validatedSnapshotName)};";
 
             try
             {
                 await _dac.ExecuteCommandAsync(dropSnapshotSql);
-                _logger.LogInformation("Successfully dropped snapshot {SnapshotName}", snapshotName);
+                _logger.LogInformation("Successfully dropped snapshot {SnapshotName}", validatedSnapshotName);
 
                 return new SnapshotResult
                 {
                     Success = true,
-                    Message = $"Successfully dropped snapshot {snapshotName}",
-                    SnapshotName = snapshotName
+                    Message = $"Successfully dropped snapshot {validatedSnapshotName}",
+                    SnapshotName = validatedSnapshotName
                 };
             }
             catch (Exception ex)
