@@ -24,6 +24,7 @@ Your repository now has **100% local lint failure prevention** before creating P
 - Provides clear instructions on how to fix issues
 - **Location:** [`.git/hooks/pre-commit`](.git/hooks/pre-commit:1)
 - **Already executable and ready to use**
+- **Fixed:** Removed faulty grep logic that was causing false negatives
 
 ### 4. ✅ Updated Lint Check Script
 
