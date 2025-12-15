@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using Softbase.Cdc.Trace;
 using Softbase.Cdc.Models;
+using Softbase.Cdc.Trace;
 
 namespace cdc_api.Controllers;
 

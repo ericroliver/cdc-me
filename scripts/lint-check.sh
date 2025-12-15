@@ -103,36 +103,31 @@ else
     print_success "Solution built successfully"
 fi
 
-# Run .NET Format check
-print_step "Checking code formatting"
-echo "Running dotnet format --verify-no-changes..."
+# Run .NET Format check (EXACTLY as CI does)
+print_step "Checking code formatting (matching CI pipeline)"
+echo "Running dotnet format --verify-no-changes --verbosity diagnostic..."
 
-# Capture format output to handle package warnings
+# Run format check exactly as CI does
 FORMAT_OUTPUT=$(dotnet format "$SOLUTION_FILE" --verify-no-changes --verbosity diagnostic 2>&1)
 FORMAT_EXIT_CODE=$?
 
 if [ $FORMAT_EXIT_CODE -ne 0 ]; then
-    # Check if it's just package warnings or actual formatting issues
-    if echo "$FORMAT_OUTPUT" | grep -q "doesn't support net6.0" && echo "$FORMAT_OUTPUT" | grep -qE "(error WHITESPACE|Formatted [0-9]+ of [0-9]+ files)"; then
-        echo ""
-        echo -e "${RED}❌ Code formatting issues found!${NC}"
-        echo "$FORMAT_OUTPUT" | grep -E "(error WHITESPACE|Formatted [0-9]+ of [0-9]+ files)" | head -10
-        echo -e "${YELLOW}To fix formatting issues, run:${NC}"
-        echo -e "${YELLOW}  dotnet format $SOLUTION_FILE${NC}"
-        exit 1
-    elif echo "$FORMAT_OUTPUT" | grep -q "doesn't support net6.0"; then
-        print_warning "Format check completed with package version warnings (non-critical)"
-        print_success "Code formatting is correct"
-    else
-        echo "$FORMAT_OUTPUT"
-        echo ""
-        echo -e "${RED}❌ Code formatting issues found!${NC}"
-        echo -e "${YELLOW}To fix formatting issues, run:${NC}"
-        echo -e "${YELLOW}  dotnet format $SOLUTION_FILE${NC}"
-        exit 1
-    fi
+    echo ""
+    echo -e "${RED}❌ Code formatting issues found!${NC}"
+    echo ""
+    echo "Format check output:"
+    echo "$FORMAT_OUTPUT" | grep -E "(error WHITESPACE|warning xUnit|Formatted [0-9]+ of [0-9]+ files)" | head -20
+    echo ""
+    echo -e "${YELLOW}To fix formatting issues automatically, run:${NC}"
+    echo -e "${YELLOW}  dotnet format $SOLUTION_FILE${NC}"
+    echo ""
+    echo -e "${YELLOW}To see all formatting issues:${NC}"
+    echo -e "${YELLOW}  dotnet format $SOLUTION_FILE --verify-no-changes --verbosity diagnostic${NC}"
+    echo ""
+    echo -e "${RED}This matches the CI pipeline check that failed!${NC}"
+    exit 1
 else
-    print_success "Code formatting is correct"
+    print_success "Code formatting is correct (matches CI requirements)"
 fi
 
 # Run static analysis (additional build with verbose output for analyzers)

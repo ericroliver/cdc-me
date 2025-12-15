@@ -1,9 +1,9 @@
-﻿using Softbase.Cdc.Trace;
-using Softbase;
-using Softbase.Cdc.Models;
-using Softbase.Cdc.Data;
 using cdc_api.Data;
 using DotNetEnv;
+using Softbase;
+using Softbase.Cdc.Data;
+using Softbase.Cdc.Models;
+using Softbase.Cdc.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 

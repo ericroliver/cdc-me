@@ -1,7 +1,7 @@
 using System;
 using System.Threading.Tasks;
-using Xunit;
 using Softbase.Cdc.Utilities;
+using Xunit;
 
 namespace Softbase.Cdc.Tests.Utilities
 {
@@ -76,7 +76,7 @@ namespace Softbase.Cdc.Tests.Utilities
             // Act & Assert
             var exception = Assert.Throws<ArgumentException>(() =>
                 SqlIdentifierValidator.ValidateIdentifier(identifier, "test"));
-            
+
             Assert.Contains("invalid characters", exception.Message, StringComparison.OrdinalIgnoreCase);
         }
 
@@ -88,12 +88,12 @@ namespace Softbase.Cdc.Tests.Utilities
         [InlineData(null)]
         [InlineData("")]
         [InlineData("   ")]
-        public void ValidateIdentifier_NullOrEmpty_ThrowsArgumentException(string identifier)
+        public void ValidateIdentifier_NullOrEmpty_ThrowsArgumentException(string? identifier)
         {
             // Act & Assert
             var exception = Assert.Throws<ArgumentException>(() =>
                 SqlIdentifierValidator.ValidateIdentifier(identifier, "test"));
-            
+
             Assert.Contains("cannot be null or empty", exception.Message, StringComparison.OrdinalIgnoreCase);
         }
 
@@ -120,7 +120,7 @@ namespace Softbase.Cdc.Tests.Utilities
             // Act & Assert
             var exception = Assert.Throws<ArgumentException>(() =>
                 SqlIdentifierValidator.ValidateIdentifier(keyword, "test"));
-            
+
             Assert.Contains("reserved SQL Server keyword", exception.Message, StringComparison.OrdinalIgnoreCase);
         }
 
@@ -136,7 +136,7 @@ namespace Softbase.Cdc.Tests.Utilities
             // Act & Assert
             var exception = Assert.Throws<ArgumentException>(() =>
                 SqlIdentifierValidator.ValidateIdentifier(longIdentifier, "test"));
-            
+
             Assert.Contains("invalid characters", exception.Message, StringComparison.OrdinalIgnoreCase);
         }
 
@@ -231,7 +231,7 @@ namespace Softbase.Cdc.Tests.Utilities
         [InlineData(null)]
         [InlineData("")]
         [InlineData("   ")]
-        public void EscapeIdentifier_NullOrEmpty_ThrowsArgumentException(string identifier)
+        public void EscapeIdentifier_NullOrEmpty_ThrowsArgumentException(string? identifier)
         {
             // Act & Assert
             Assert.Throws<ArgumentException>(() =>
@@ -255,7 +255,7 @@ namespace Softbase.Cdc.Tests.Utilities
             // Act & Assert
             var exception = Assert.Throws<ArgumentException>(() =>
                 SqlIdentifierValidator.ValidateIdentifier(maliciousInput, "test"));
-            
+
             Assert.Contains("invalid characters", exception.Message, StringComparison.OrdinalIgnoreCase);
         }
 

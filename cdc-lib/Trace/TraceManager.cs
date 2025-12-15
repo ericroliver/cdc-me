@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Softbase.Cdc.Models;
-using System.Text;
 using Newtonsoft.Json;
+using Softbase.Cdc.Models;
 
 namespace Softbase.Cdc.Trace
 {

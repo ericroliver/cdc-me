@@ -1,4 +1,4 @@
-﻿using System.CommandLine;
+using System.CommandLine;
 using System.CommandLine.NamingConventionBinder;
 using Microsoft.Extensions.Logging;
 using Softbase.Cdc;

@@ -1,5 +1,3 @@
-using Microsoft.Extensions.Logging;
-using Softbase;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -7,6 +5,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Softbase;
 
 namespace Softbase.Cdc;
 

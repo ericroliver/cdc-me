@@ -1,8 +1,8 @@
 using System;
-using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
-using System.Text;
 using System.Linq;
+using System.Text;
+using Microsoft.Extensions.Logging;
 using Softbase.Cdc.Utilities;
 
 namespace Softbase.Cdc
@@ -174,7 +174,7 @@ namespace Softbase.Cdc
             // Validate identifiers to prevent SQL injection
             var validatedSchema = SqlIdentifierValidator.ValidateIdentifier(schema, "schema");
             var validatedTableName = SqlIdentifierValidator.ValidateIdentifier(tableName, "table name");
-            
+
             var sb = new StringBuilder();
             sb.AppendLine("declare @min BINARY(10), @max BINARY(10);");
             sb.AppendLine($"select @min = sys.fn_cdc_get_min_lsn('{validatedSchema}_{validatedTableName}'), @max = sys.fn_cdc_get_max_lsn()");
@@ -192,7 +192,7 @@ namespace Softbase.Cdc
             // Validate identifiers to prevent SQL injection
             var validatedSchema = SqlIdentifierValidator.ValidateIdentifier(schema, "schema");
             var validatedTableName = SqlIdentifierValidator.ValidateIdentifier(tableName, "table name");
-            
+
             var sb = new StringBuilder();
             sb.AppendLine("declare @min BINARY(10), @max BINARY(10);");
             sb.AppendLine($"select @min = sys.fn_cdc_get_min_lsn('{validatedSchema}_{validatedTableName}'), @max = sys.fn_cdc_get_max_lsn()");
@@ -317,12 +317,12 @@ namespace Softbase.Cdc
                     // Validate identifiers to prevent SQL injection
                     var validatedSchema = SqlIdentifierValidator.ValidateIdentifier(table.Schema, "schema");
                     var validatedTableName = SqlIdentifierValidator.ValidateIdentifier(table.Name, "table name");
-                    
+
                     var index = table.Indexes.FirstOrDefault(i => i.IndexType.Contains("primary"));
                     var validatedIndexName = index?.IndexName != null
                         ? SqlIdentifierValidator.ValidateIdentifier(index.IndexName, "index name")
                         : null;
-                    
+
                     var enableTableCdc = string.Format(tableCdcOnTemplate, validatedSchema, validatedTableName, validatedIndexName);
 
                     try
@@ -370,7 +370,7 @@ namespace Softbase.Cdc
             // Validate identifiers to prevent SQL injection
             var validatedSchema = SqlIdentifierValidator.ValidateIdentifier(schema, "schema");
             var validatedTableName = SqlIdentifierValidator.ValidateIdentifier(tableName, "table name");
-            
+
             var tableSelect = $"EXEC sp_helpindex '{validatedSchema}.{validatedTableName}';";
             return dac.ExecuteReader<IEnumerable<SqlIndex>>(tableSelect, (reader) =>
             {

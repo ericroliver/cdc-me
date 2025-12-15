@@ -36,9 +36,49 @@
 
 A comprehensive .NET solution for database change validation using SQL Server's Change Data Capture (CDC) functionality. This framework enables teams to create repeatable testing environments for validating data consistency across different implementations, optimizations, and database changes.
 
+## Quick Start
+
+### Prerequisites
+
+- .NET 9.0 SDK or later
+- Docker (for running SQL Server)
+- Git
+
+### Setup for Development
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd cdc-me
+   ```
+
+2. **Set up local linting** (prevents CI failures)
+   ```bash
+   # The pre-commit hook is already installed
+   # Just make sure it's executable
+   chmod +x .git/hooks/pre-commit
+   
+   # Test the lint check
+   ./scripts/lint-check.sh
+   ```
+
+3. **Configure your editor** - See [Local Lint Setup Guide](docs/local-lint-setup.md)
+
+4. **Start development**
+   ```bash
+   # Format code automatically
+   dotnet format cdc-me.sln
+   
+   # Build and test
+   dotnet build cdc-me.sln
+   dotnet test cdc-me.sln
+   ```
+
+📖 **Important:** Read the [Local Lint Setup Guide](docs/local-lint-setup.md) to ensure you catch all lint failures locally before creating PRs.
+
 ## Use Case
 
-The initial use case was developed to support entire rewrites of stored procedures. The basica idea is:
+The initial use case was developed to support entire rewrites of stored procedures. The basic idea is:
 
 1. Capture a snapshot
 2. Turn on CDC

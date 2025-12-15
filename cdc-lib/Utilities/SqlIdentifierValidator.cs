@@ -197,10 +197,10 @@ namespace Softbase.Cdc.Utilities
         private static async Task<bool> DatabaseExistsAsync(string databaseName, IDbConnection connection)
         {
             const string sql = "SELECT COUNT(1) FROM sys.databases WHERE name = @databaseName";
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = sql;
-            
+
             var parameter = command.CreateParameter();
             parameter.ParameterName = "@databaseName";
             parameter.Value = databaseName;
@@ -218,10 +218,10 @@ namespace Softbase.Cdc.Utilities
         private static async Task<bool> SchemaExistsAsync(string schemaName, IDbConnection connection)
         {
             const string sql = "SELECT COUNT(1) FROM sys.schemas WHERE name = @schemaName";
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = sql;
-            
+
             var parameter = command.CreateParameter();
             parameter.ParameterName = "@schemaName";
             parameter.Value = schemaName;
@@ -242,10 +242,10 @@ namespace Softbase.Cdc.Utilities
                 SELECT COUNT(1) 
                 FROM INFORMATION_SCHEMA.TABLES 
                 WHERE TABLE_SCHEMA = @schemaName AND TABLE_NAME = @tableName";
-            
+
             using var command = connection.CreateCommand();
             command.CommandText = sql;
-            
+
             var schemaParam = command.CreateParameter();
             schemaParam.ParameterName = "@schemaName";
             schemaParam.Value = schemaName;

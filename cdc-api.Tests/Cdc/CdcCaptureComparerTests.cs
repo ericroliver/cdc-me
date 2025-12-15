@@ -1,10 +1,10 @@
+using System.Data;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Softbase;
 using Softbase.Cdc;
 using Softbase.Cdc.Data;
-using System.Data;
-using System.Text.Json;
 using Xunit;
 
 namespace cdc_api.Tests.Cdc;

@@ -1,13 +1,13 @@
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using cdc_api.Controllers;
+using cdc_api.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Xunit;
-using cdc_api.Controllers;
-using cdc_api.Models;
 using Softbase;
 using Softbase.Cdc.Data;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using Xunit;
 
 namespace cdc_api.Tests.Controllers;
 
