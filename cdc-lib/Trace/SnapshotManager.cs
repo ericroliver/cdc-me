@@ -30,6 +30,23 @@ namespace Softbase.Cdc.Trace
                 var validatedDatabaseName = SqlIdentifierValidator.ValidateIdentifier(databaseName, "database name");
                 var validatedSnapshotName = SqlIdentifierValidator.ValidateIdentifier(snapshotName, "snapshot name");
 
+                // Check if database exists
+                const string checkDatabaseSql = "SELECT COUNT(1) FROM sys.databases WHERE name = @databaseName";
+                var databaseExists = await _dac.ExecuteScalarAsync<int>(checkDatabaseSql, new Dictionary<string, object>
+                {
+                    ["@databaseName"] = validatedDatabaseName
+                }) > 0;
+
+                if (!databaseExists)
+                {
+                    return new SnapshotResult
+                    {
+                        Success = false,
+                        Message = $"Database '{validatedDatabaseName}' does not exist or is not accessible.",
+                        SnapshotName = validatedSnapshotName
+                    };
+                }
+
                 // Check if snapshot already exists
                 if (await SnapshotExistsAsync(validatedSnapshotName))
                 {
@@ -44,29 +61,49 @@ namespace Softbase.Cdc.Trace
                 // Get database file paths
                 var dataFiles = await GetDatabaseFilesAsync(validatedDatabaseName);
 
+                if (dataFiles == null || dataFiles.Count == 0)
+                {
+                    return new SnapshotResult
+                    {
+                        Success = false,
+                        Message = $"No data files found for database '{validatedDatabaseName}'. The database may not exist, may not be online, or you may not have permissions to access it.",
+                        SnapshotName = validatedSnapshotName
+                    };
+                }
+
                 // Build CREATE DATABASE AS SNAPSHOT statement
                 var snapshotFiles = new List<string>();
                 foreach (var file in dataFiles)
                 {
                     var snapshotFileName = $"{file.LogicalName}_snapshot.ss";
                     var snapshotFilePath = Path.Combine(Path.GetDirectoryName(file.PhysicalName) ?? "", snapshotFileName);
-                    snapshotFiles.Add($"(NAME = '{file.LogicalName}', FILENAME = '{snapshotFilePath}')");
+                    // NAME uses square brackets, FILENAME uses single quotes
+                    snapshotFiles.Add($"(NAME = [{file.LogicalName}], FILENAME = '{snapshotFilePath}')");
                 }
 
-                var createSnapshotSql = $@"
-                    CREATE DATABASE {SqlIdentifierValidator.EscapeIdentifier(validatedSnapshotName)} ON
-                    {string.Join(",\n", snapshotFiles)}
-                    AS SNAPSHOT OF {SqlIdentifierValidator.EscapeIdentifier(validatedDatabaseName)};";
+                var createSnapshotSql = $@"CREATE DATABASE {SqlIdentifierValidator.EscapeIdentifier(validatedSnapshotName)} ON
+{string.Join(",\n", snapshotFiles)}
+AS SNAPSHOT OF {SqlIdentifierValidator.EscapeIdentifier(validatedDatabaseName)};";
 
-                await _dac.ExecuteCommandAsync(createSnapshotSql);
-                _logger.LogInformation("Successfully created snapshot {SnapshotName}", validatedSnapshotName);
-
-                return new SnapshotResult
+                _logger.LogInformation("Executing snapshot creation SQL: {Sql}", createSnapshotSql);
+                
+                try
                 {
-                    Success = true,
-                    Message = "Snapshot created successfully",
-                    SnapshotName = validatedSnapshotName
-                };
+                    await _dac.ExecuteCommandAsync(createSnapshotSql);
+                    _logger.LogInformation("Successfully created snapshot {SnapshotName}", validatedSnapshotName);
+
+                    return new SnapshotResult
+                    {
+                        Success = true,
+                        Message = "Snapshot created successfully",
+                        SnapshotName = validatedSnapshotName
+                    };
+                }
+                catch (Exception sqlEx)
+                {
+                    _logger.LogError(sqlEx, "Error executing statement: {Sql}", createSnapshotSql);
+                    throw;
+                }
             }
             catch (Exception ex)
             {
@@ -321,6 +358,8 @@ namespace Softbase.Cdc.Trace
 
         private async Task<List<DatabaseFileInfo>> GetDatabaseFilesAsync(string databaseName)
         {
+            _logger.LogDebug("Getting database files for database: {DatabaseName}", databaseName);
+
             const string getFilesSql = @"
                 SELECT
                     mf.name AS LogicalName,
@@ -330,23 +369,41 @@ namespace Softbase.Cdc.Trace
                 INNER JOIN sys.databases d ON mf.database_id = d.database_id
                 WHERE d.name = @databaseName AND mf.type = 0"; // Only data files for snapshots
 
-            return await _dac.ExecuteReaderAsync(getFilesSql, reader =>
+            try
             {
-                var files = new List<DatabaseFileInfo>();
-                while (reader.Read())
+                var files = await _dac.ExecuteReaderAsync(getFilesSql, reader =>
                 {
-                    files.Add(new DatabaseFileInfo
+                    var fileList = new List<DatabaseFileInfo>();
+                    while (reader.Read())
                     {
-                        LogicalName = reader.GetString(0),
-                        PhysicalName = reader.GetString(1),
-                        FileType = reader.GetString(2)
-                    });
-                }
+                        var logicalName = reader.GetString(0);
+                        var physicalName = reader.GetString(1);
+                        var fileType = reader.GetString(2);
+                        
+                        _logger.LogDebug("Found database file: LogicalName={LogicalName}, PhysicalName={PhysicalName}, FileType={FileType}",
+                            logicalName, physicalName, fileType);
+                        
+                        fileList.Add(new DatabaseFileInfo
+                        {
+                            LogicalName = logicalName,
+                            PhysicalName = physicalName,
+                            FileType = fileType
+                        });
+                    }
+                    return fileList;
+                }, new Dictionary<string, object>
+                {
+                    ["@databaseName"] = databaseName
+                });
+
+                _logger.LogInformation("Retrieved {FileCount} data file(s) for database {DatabaseName}", files.Count, databaseName);
                 return files;
-            }, new Dictionary<string, object>
+            }
+            catch (Exception ex)
             {
-                ["@databaseName"] = databaseName
-            });
+                _logger.LogError(ex, "Error retrieving database files for {DatabaseName}", databaseName);
+                throw;
+            }
         }
     }
 }
