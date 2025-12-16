@@ -267,7 +267,7 @@ AS SNAPSHOT OF {SqlIdentifierValidator.EscapeIdentifier(validatedDatabaseName)};
                     d.name AS SnapshotName,
                     sd.name AS SourceDatabase,
                     d.create_date AS CreatedTime,
-                    ISNULL(SUM(mf.size * 8 * 1024), 0) AS SizeInBytes,
+                    ISNULL(SUM(CAST(mf.size AS BIGINT) * 8 * 1024), 0) AS SizeInBytes,
                     d.state_desc AS Status
                 FROM sys.databases d
                 LEFT JOIN sys.databases sd ON d.source_database_id = sd.database_id
@@ -312,7 +312,7 @@ AS SNAPSHOT OF {SqlIdentifierValidator.EscapeIdentifier(validatedDatabaseName)};
                     d.name AS SnapshotName,
                     sd.name AS SourceDatabase,
                     d.create_date AS CreatedTime,
-                    CAST(ISNULL(SUM(mf.size * 8 * 1024), 0) AS BIGINT) AS SizeInBytes,
+                    ISNULL(SUM(CAST(mf.size AS BIGINT) * 8 * 1024), 0) AS SizeInBytes,
                     d.state_desc AS Status
                 FROM sys.databases d
                 LEFT JOIN sys.databases sd ON d.source_database_id = sd.database_id
