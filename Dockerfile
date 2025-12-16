@@ -10,6 +10,11 @@ ARG VERSION=1.0.0
 
 WORKDIR /src
 
+RUN apt-get update
+RUN apt-get install -y bash nano
+
+COPY openssl.cnf /etc/ssl/openssl.cnf
+
 # Copy project files
 COPY ["cdc-api/cdc-api.csproj", "cdc-api/"]
 COPY ["cdc-lib/cdc-lib.csproj", "cdc-lib/"]
