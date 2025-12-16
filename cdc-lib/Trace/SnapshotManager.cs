@@ -59,7 +59,14 @@ namespace Softbase.Cdc.Trace
                 foreach (var file in dataFiles)
                 {
                     var snapshotFileName = $"{file.LogicalName}_snapshot.ss";
-                    var snapshotFilePath = Path.Combine(Path.GetDirectoryName(file.PhysicalName) ?? "", snapshotFileName);
+                    // Handle Windows paths even when running on Linux (e.g., in Docker)
+                    // Extract directory from Windows path using string manipulation
+                    var physicalPath = file.PhysicalName;
+                    var lastSeparator = Math.Max(physicalPath.LastIndexOf('\\'), physicalPath.LastIndexOf('/'));
+                    var directory = lastSeparator >= 0 ? physicalPath.Substring(0, lastSeparator) : "";
+                    var snapshotFilePath = string.IsNullOrEmpty(directory)
+                        ? snapshotFileName
+                        : $"{directory}\\{snapshotFileName}";
                     // NAME uses square brackets, FILENAME uses single quotes
                     snapshotFiles.Add($"(NAME = [{file.LogicalName}], FILENAME = '{snapshotFilePath}')");
                 }
