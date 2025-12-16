@@ -322,12 +322,13 @@ namespace Softbase.Cdc.Trace
         private async Task<List<DatabaseFileInfo>> GetDatabaseFilesAsync(string databaseName)
         {
             const string getFilesSql = @"
-                SELECT 
-                    name AS LogicalName,
-                    physical_name AS PhysicalName,
-                    type_desc AS FileType
-                FROM sys.master_files 
-                WHERE database_id = DB_ID(@databaseName) AND type = 0"; // Only data files for snapshots
+                SELECT
+                    mf.name AS LogicalName,
+                    mf.physical_name AS PhysicalName,
+                    mf.type_desc AS FileType
+                FROM sys.master_files mf
+                INNER JOIN sys.databases d ON mf.database_id = d.database_id
+                WHERE d.name = @databaseName AND mf.type = 0"; // Only data files for snapshots
 
             return await _dac.ExecuteReaderAsync(getFilesSql, reader =>
             {
