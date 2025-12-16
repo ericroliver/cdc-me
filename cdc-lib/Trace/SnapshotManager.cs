@@ -30,23 +30,6 @@ namespace Softbase.Cdc.Trace
                 var validatedDatabaseName = SqlIdentifierValidator.ValidateIdentifier(databaseName, "database name");
                 var validatedSnapshotName = SqlIdentifierValidator.ValidateIdentifier(snapshotName, "snapshot name");
 
-                // Check if database exists
-                const string checkDatabaseSql = "SELECT COUNT(1) FROM sys.databases WHERE name = @databaseName";
-                var databaseExists = await _dac.ExecuteScalarAsync<int>(checkDatabaseSql, new Dictionary<string, object>
-                {
-                    ["@databaseName"] = validatedDatabaseName
-                }) > 0;
-
-                if (!databaseExists)
-                {
-                    return new SnapshotResult
-                    {
-                        Success = false,
-                        Message = $"Database '{validatedDatabaseName}' does not exist or is not accessible.",
-                        SnapshotName = validatedSnapshotName
-                    };
-                }
-
                 // Check if snapshot already exists
                 if (await SnapshotExistsAsync(validatedSnapshotName))
                 {
