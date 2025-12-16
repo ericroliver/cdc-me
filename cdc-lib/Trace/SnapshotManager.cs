@@ -60,13 +60,16 @@ namespace Softbase.Cdc.Trace
                 {
                     var snapshotFileName = $"{file.LogicalName}_snapshot.ss";
                     // Handle Windows paths even when running on Linux (e.g., in Docker)
-                    // Extract directory from Windows path using string manipulation
+                    // Extract directory from path using string manipulation, preserving original separator
                     var physicalPath = file.PhysicalName;
-                    var lastSeparator = Math.Max(physicalPath.LastIndexOf('\\'), physicalPath.LastIndexOf('/'));
+                    var lastBackslash = physicalPath.LastIndexOf('\\');
+                    var lastForwardslash = physicalPath.LastIndexOf('/');
+                    var lastSeparator = Math.Max(lastBackslash, lastForwardslash);
+                    var separator = lastBackslash > lastForwardslash ? '\\' : '/';
                     var directory = lastSeparator >= 0 ? physicalPath.Substring(0, lastSeparator) : "";
                     var snapshotFilePath = string.IsNullOrEmpty(directory)
                         ? snapshotFileName
-                        : $"{directory}\\{snapshotFileName}";
+                        : $"{directory}{separator}{snapshotFileName}";
                     // NAME uses square brackets, FILENAME uses single quotes
                     snapshotFiles.Add($"(NAME = [{file.LogicalName}], FILENAME = '{snapshotFilePath}')");
                 }
@@ -146,14 +149,19 @@ AS SNAPSHOT OF {SqlIdentifierValidator.EscapeIdentifier(validatedDatabaseName)};
                     };
                 }
 
+                // Switch to master database context first
+                await _dac.ExecuteCommandAsync("USE master;");
+
                 // Set database to single user mode
                 var setSingleUserSql = $"ALTER DATABASE {SqlIdentifierValidator.EscapeIdentifier(validatedTargetDatabaseName)} SET SINGLE_USER WITH ROLLBACK IMMEDIATE;";
 
                 // Restore from snapshot
-                var restoreSql = $"use master;RESTORE DATABASE {SqlIdentifierValidator.EscapeIdentifier(validatedTargetDatabaseName)} FROM DATABASE_SNAPSHOT = {SqlIdentifierValidator.EscapeIdentifier(validatedSnapshotName)};";
+                var restoreSql = $"RESTORE DATABASE {SqlIdentifierValidator.EscapeIdentifier(validatedTargetDatabaseName)} FROM DATABASE_SNAPSHOT = {SqlIdentifierValidator.EscapeIdentifier(validatedSnapshotName)};";
 
                 // Set back to multi user mode
                 var setMultiUserSql = $"ALTER DATABASE {SqlIdentifierValidator.EscapeIdentifier(validatedTargetDatabaseName)} SET MULTI_USER;";
+
+                _logger.LogInformation("Executing restore SQL: {Sql}", restoreSql);
 
                 try
                 {
@@ -272,7 +280,7 @@ AS SNAPSHOT OF {SqlIdentifierValidator.EscapeIdentifier(validatedDatabaseName)};
             const string getSnapshotInfoSql = @"
                 SELECT
                     d.name AS SnapshotName,
-                    sd.name AS SourceDatabase,
+                    ISNULL(sd.name, 'Unknown') AS SourceDatabase,
                     d.create_date AS CreatedTime,
                     ISNULL(SUM(CAST(mf.size AS BIGINT) * 8 * 1024), 0) AS SizeInBytes,
                     d.state_desc AS Status
@@ -280,7 +288,7 @@ AS SNAPSHOT OF {SqlIdentifierValidator.EscapeIdentifier(validatedDatabaseName)};
                 LEFT JOIN sys.databases sd ON d.source_database_id = sd.database_id
                 LEFT JOIN sys.master_files mf ON d.database_id = mf.database_id
                 WHERE d.name = @snapshotName AND d.source_database_id IS NOT NULL
-                GROUP BY d.name, sd.name, d.create_date, d.state_desc";
+                GROUP BY d.name, ISNULL(sd.name, 'Unknown'), d.create_date, d.state_desc";
 
             return await _dac.ExecuteReaderAsync(getSnapshotInfoSql, reader =>
             {
@@ -317,7 +325,7 @@ AS SNAPSHOT OF {SqlIdentifierValidator.EscapeIdentifier(validatedDatabaseName)};
             const string listSnapshotsSql = @"
                 SELECT
                     d.name AS SnapshotName,
-                    sd.name AS SourceDatabase,
+                    ISNULL(sd.name, 'Unknown') AS SourceDatabase,
                     d.create_date AS CreatedTime,
                     ISNULL(SUM(CAST(mf.size AS BIGINT) * 8 * 1024), 0) AS SizeInBytes,
                     d.state_desc AS Status
@@ -325,25 +333,35 @@ AS SNAPSHOT OF {SqlIdentifierValidator.EscapeIdentifier(validatedDatabaseName)};
                 LEFT JOIN sys.databases sd ON d.source_database_id = sd.database_id
                 LEFT JOIN sys.master_files mf ON d.database_id = mf.database_id
                 WHERE d.source_database_id IS NOT NULL
-                GROUP BY d.name, sd.name, d.create_date, d.state_desc
+                GROUP BY d.name, ISNULL(sd.name, 'Unknown'), d.create_date, d.state_desc
                 ORDER BY d.create_date DESC";
 
-            return await _dac.ExecuteReaderAsync(listSnapshotsSql, reader =>
+            try
             {
-                var snapshots = new List<SnapshotInfo>();
-                while (reader.Read())
+                _logger.LogInformation("Executing list snapshots query");
+                return await _dac.ExecuteReaderAsync(listSnapshotsSql, reader =>
                 {
-                    snapshots.Add(new SnapshotInfo
+                    var snapshots = new List<SnapshotInfo>();
+                    while (reader.Read())
                     {
-                        SnapshotName = reader.GetString(0),
-                        SourceDatabase = reader.GetString(1),
-                        CreatedTime = reader.GetDateTime(2),
-                        SizeInBytes = reader.GetInt64(3),
-                        Status = reader.GetString(4)
-                    });
-                }
-                return snapshots;
-            });
+                        snapshots.Add(new SnapshotInfo
+                        {
+                            SnapshotName = reader.GetString(0),
+                            SourceDatabase = reader.GetString(1),
+                            CreatedTime = reader.GetDateTime(2),
+                            SizeInBytes = reader.GetInt64(3),
+                            Status = reader.GetString(4)
+                        });
+                    }
+                    _logger.LogInformation("Found {Count} snapshot(s)", snapshots.Count);
+                    return snapshots;
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error listing snapshots");
+                throw;
+            }
         }
 
         private async Task<List<DatabaseFileInfo>> GetDatabaseFilesAsync(string databaseName)
