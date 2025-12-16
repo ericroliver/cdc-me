@@ -73,8 +73,9 @@ public class SnapshotManagerTests
     {
         // Arrange - Replicate the exact snapshot path construction logic from SnapshotManager
         var snapshotFileName = $"{logicalName}_snapshot.ss";
-        
-        // Extract directory from path using string manipulation, preserving original separator
+
+        // Extract directory from path using string manipulation, preserving original
+        // separator
         var lastBackslash = physicalPath.LastIndexOf('\\');
         var lastForwardslash = physicalPath.LastIndexOf('/');
         var lastSeparator = Math.Max(lastBackslash, lastForwardslash);
