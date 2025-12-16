@@ -86,7 +86,7 @@ namespace Softbase.Cdc.Trace
 AS SNAPSHOT OF {SqlIdentifierValidator.EscapeIdentifier(validatedDatabaseName)};";
 
                 _logger.LogInformation("Executing snapshot creation SQL: {Sql}", createSnapshotSql);
-                
+
                 try
                 {
                     await _dac.ExecuteCommandAsync(createSnapshotSql);
@@ -379,10 +379,10 @@ AS SNAPSHOT OF {SqlIdentifierValidator.EscapeIdentifier(validatedDatabaseName)};
                         var logicalName = reader.GetString(0);
                         var physicalName = reader.GetString(1);
                         var fileType = reader.GetString(2);
-                        
+
                         _logger.LogDebug("Found database file: LogicalName={LogicalName}, PhysicalName={PhysicalName}, FileType={FileType}",
                             logicalName, physicalName, fileType);
-                        
+
                         fileList.Add(new DatabaseFileInfo
                         {
                             LogicalName = logicalName,
