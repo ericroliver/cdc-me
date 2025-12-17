@@ -165,6 +165,9 @@ namespace Softbase.Cdc.Tests.Utilities
         [InlineData("MyTable", "[MyTable]")]
         [InlineData("my_table", "[my_table]")]
         [InlineData("[AlreadyBracketed]", "[AlreadyBracketed]")]
+        [InlineData("Karmak Customer Codes$", "[Karmak Customer Codes$]")]
+        [InlineData("Table With Spaces", "[Table With Spaces]")]
+        [InlineData("Table$With$Dollar", "[Table$With$Dollar]")]
         public void EscapeIdentifier_ValidIdentifiers_ReturnsBracketed(string identifier, string expected)
         {
             // Act

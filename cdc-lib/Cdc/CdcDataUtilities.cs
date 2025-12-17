@@ -367,11 +367,13 @@ namespace Softbase.Cdc
 
         public static IEnumerable<SqlIndex> GetIndexes(SimpleDac dac, string schema, string tableName)
         {
-            // Validate identifiers to prevent SQL injection
-            var validatedSchema = SqlIdentifierValidator.ValidateIdentifier(schema, "schema");
-            var validatedTableName = SqlIdentifierValidator.ValidateIdentifier(tableName, "table name");
+            // Escape identifiers for safe SQL execution
+            // Note: Table names come from INFORMATION_SCHEMA and are trusted, but may contain
+            // special characters like spaces or $ that require bracketing in SQL Server
+            var escapedSchema = SqlIdentifierValidator.EscapeIdentifier(schema);
+            var escapedTableName = SqlIdentifierValidator.EscapeIdentifier(tableName);
 
-            var tableSelect = $"EXEC sp_helpindex '{validatedSchema}.{validatedTableName}';";
+            var tableSelect = $"EXEC sp_helpindex '{escapedSchema}.{escapedTableName}';";
             return dac.ExecuteReader<IEnumerable<SqlIndex>>(tableSelect, (reader) =>
             {
                 var models = new List<SqlIndex>();
