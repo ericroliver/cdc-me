@@ -62,10 +62,19 @@ public class CdcController : ControllerBase
 
             // Step 2: Get all tables and apply filtering
             var allTables = CdcDataUtilities.GetTables(testDac);
+            
+            // Log all table names for debugging
+            _logger.LogDebug("All tables from database: {Tables}",
+                string.Join(", ", allTables.Select(t => $"{t.Schema}.{t.Name}")));
+            _logger.LogDebug("Tables to include from request: {Include}",
+                request.TablesToInclude != null ? string.Join(", ", request.TablesToInclude) : "null");
+            
             var filteredTables = FilterTables(allTables, request.TablesToInclude, request.TablesToExclude);
 
             _logger.LogDebug("Found {TotalTables} total tables, {FilteredTables} after filtering",
                 allTables.Count(), filteredTables.Count());
+            _logger.LogDebug("Filtered tables: {FilteredTableNames}",
+                string.Join(", ", filteredTables.Select(t => $"{t.Schema}.{t.Name}")));
 
             // Step 3: Enable CDC on filtered tables
             var tablesEnabled = new List<string>();
@@ -100,7 +109,25 @@ public class CdcController : ControllerBase
                 }
             }
 
-            // Step 4: Create or update session in trace database
+            // Step 4: Check if user requested specific tables but none were enabled
+            if (request.TablesToInclude != null && request.TablesToInclude.Any() && tablesEnabled.Count == 0)
+            {
+                var errorMsg = $"None of the {request.TablesToInclude.Count} requested tables could be CDC-enabled. " +
+                              $"Tables may not exist, lack primary keys, or have other issues. Check tablesSkipped and errors for details.";
+                _logger.LogError(errorMsg);
+                
+                return BadRequest(new StartCdcResponse
+                {
+                    Success = false,
+                    SessionName = request.SessionName,
+                    Message = errorMsg,
+                    TablesEnabled = tablesEnabled,
+                    TablesSkipped = tablesSkipped,
+                    Errors = errors.Any() ? errors : new List<string> { "No tables matched the filter or all tables were skipped" }
+                });
+            }
+
+            // Step 5: Create or update session in trace database
             await CreateOrUpdateSessionAsync(request.SessionName, request.TablesToInclude, request.TablesToExclude);
 
             // Build response
@@ -307,9 +334,44 @@ public class CdcController : ControllerBase
         string captureName,
         string captureType)
     {
-        // Step 1: Capture CDC data (net changes only)
+        // Step 1: Get session configuration to determine which tables to capture
+        var sessionConfig = await GetSessionConfigurationAsync(cdcMeDac, sessionName);
+
+        // Step 2: Get all tables and apply session filters
         var allTables = CdcDataUtilities.GetTables(testDac);
-        var cdcResult = CdcDataUtilities.BuildNetProfile(testDac, allTables, _logger);
+        var filteredTables = FilterTables(allTables, sessionConfig.TablesToInclude, sessionConfig.TablesToExclude);
+
+        _logger.LogDebug("Capturing CDC data for {FilteredCount} of {TotalCount} tables based on session filters",
+            filteredTables.Count(), allTables.Count());
+
+        // If user requested specific tables but none match the filter, fail
+        if (sessionConfig.TablesToInclude != null && sessionConfig.TablesToInclude.Any() && !filteredTables.Any())
+        {
+            var errorMsg = $"None of the {sessionConfig.TablesToInclude.Count} tables from session configuration could be found or are CDC-enabled. " +
+                          "Tables may have been disabled, dropped, or the session configuration is incorrect.";
+            _logger.LogError(errorMsg);
+            return new CdcCaptureResult
+            {
+                IsSuccess = false,
+                ErrorMessage = errorMsg
+            };
+        }
+
+        // If no tables match (and no specific tables were requested), return empty success
+        if (!filteredTables.Any())
+        {
+            _logger.LogWarning("No CDC-enabled tables found to capture data from.");
+            return new CdcCaptureResult
+            {
+                IsSuccess = true,
+                TablesWithChanges = new List<string>(),
+                TotalRecords = 0,
+                CaptureId = string.Empty
+            };
+        }
+
+        // Step 3: Capture CDC data (net changes only) for filtered tables
+        var cdcResult = CdcDataUtilities.BuildNetProfile(testDac, filteredTables, _logger);
 
         _logger.LogDebug("Captured CDC data from {TableCount} tables", cdcResult.Data.Count);
 
@@ -348,6 +410,45 @@ public class CdcController : ControllerBase
     }
 
     /// <summary>
+    /// Session configuration retrieved from database
+    /// </summary>
+    private class SessionConfiguration
+    {
+        public List<string>? TablesToInclude { get; set; }
+        public List<string>? TablesToExclude { get; set; }
+    }
+
+    /// <summary>
+    /// Get session configuration from trace database
+    /// </summary>
+    /// <param name="cdcMeDac">CdcMe database connection</param>
+    /// <param name="sessionName">Session name</param>
+    /// <returns>Session configuration</returns>
+    private async Task<SessionConfiguration> GetSessionConfigurationAsync(SimpleDac cdcMeDac, string sessionName)
+    {
+        const string sql = "SELECT configuration FROM trace_sessions WHERE session_name = @sessionName";
+        var parameters = new Dictionary<string, object>
+        {
+            ["sessionName"] = sessionName
+        };
+
+        var configJson = await cdcMeDac.ExecuteScalarAsync<string>(sql, parameters);
+        
+        if (string.IsNullOrEmpty(configJson))
+        {
+            _logger.LogWarning("No configuration found for session {SessionName}, using default (no filters)", sessionName);
+            return new SessionConfiguration();
+        }
+
+        var config = JsonSerializer.Deserialize<SessionConfiguration>(configJson, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        return config ?? new SessionConfiguration();
+    }
+
+    /// <summary>
     /// Filter tables based on include/exclude criteria
     /// </summary>
     /// <param name="allTables">All available tables</param>
@@ -365,14 +466,18 @@ public class CdcController : ControllerBase
         if (tablesToInclude != null && tablesToInclude.Any())
         {
             var includeSet = new HashSet<string>(tablesToInclude, StringComparer.OrdinalIgnoreCase);
-            tables = tables.Where(t => includeSet.Contains($"{t.Schema}.{t.Name}"));
+            tables = tables.Where(t =>
+                includeSet.Contains(t.Name) ||
+                includeSet.Contains($"{t.Schema}.{t.Name}"));
         }
 
         // Apply exclude filter if specified
         if (tablesToExclude != null && tablesToExclude.Any())
         {
             var excludeSet = new HashSet<string>(tablesToExclude, StringComparer.OrdinalIgnoreCase);
-            tables = tables.Where(t => !excludeSet.Contains($"{t.Schema}.{t.Name}"));
+            tables = tables.Where(t =>
+                !excludeSet.Contains(t.Name) &&
+                !excludeSet.Contains($"{t.Schema}.{t.Name}"));
         }
 
         return tables;

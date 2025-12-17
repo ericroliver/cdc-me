@@ -213,6 +213,54 @@ public class CdcControllerTests
     }
 
     /// <summary>
+    /// Test that table filtering works with table name only (no schema prefix)
+    /// </summary>
+    [Fact]
+    public void FilterTables_TableNameOnly_ReturnsCorrectTables()
+    {
+        // Arrange
+        var allTables = new List<SqlTable>
+        {
+            new SqlTable("TestDB", "dbo", "AaCompanyConfig"),
+            new SqlTable("TestDB", "dbo", "Orders"),
+            new SqlTable("TestDB", "dbo", "Customers")
+        };
+
+        var tablesToInclude = new List<string> { "AaCompanyConfig" };
+
+        // Act
+        var result = CdcControllerTestHelper.FilterTablesPublic(allTables, tablesToInclude, null);
+
+        // Assert
+        Assert.Single(result);
+        Assert.Contains(result, t => t.Name == "AaCompanyConfig");
+    }
+
+    /// <summary>
+    /// Test that table filtering works with table name only and is case insensitive
+    /// </summary>
+    [Fact]
+    public void FilterTables_TableNameOnlyCaseInsensitive_ReturnsCorrectTables()
+    {
+        // Arrange
+        var allTables = new List<SqlTable>
+        {
+            new SqlTable("TestDB", "dbo", "AaCompanyConfig"),
+            new SqlTable("TestDB", "dbo", "Orders"),
+            new SqlTable("TestDB", "dbo", "Customers")
+        };
+
+        var tablesToInclude = new List<string> { "aacompanyconfig" };
+
+        // Act
+        var result = CdcControllerTestHelper.FilterTablesPublic(allTables, tablesToInclude, null);
+
+        // Assert
+        Assert.Single(result);
+        Assert.Contains(result, t => t.Name == "AaCompanyConfig");
+    }
+
+    /// <summary>
     /// Test that table filtering with non-matching include filter returns empty
     /// </summary>
     [Fact]
