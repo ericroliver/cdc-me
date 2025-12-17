@@ -155,8 +155,10 @@ AS SNAPSHOT OF {SqlIdentifierValidator.EscapeIdentifier(validatedDatabaseName)};
                 // Set database to single user mode
                 var setSingleUserSql = $"ALTER DATABASE {SqlIdentifierValidator.EscapeIdentifier(validatedTargetDatabaseName)} SET SINGLE_USER WITH ROLLBACK IMMEDIATE;";
 
-                // Restore from snapshot
-                var restoreSql = $"RESTORE DATABASE {SqlIdentifierValidator.EscapeIdentifier(validatedTargetDatabaseName)} FROM DATABASE_SNAPSHOT = {SqlIdentifierValidator.EscapeIdentifier(validatedSnapshotName)};";
+                // Restore from snapshot - snapshot name must be a string literal (single quotes), not an identifier
+                // Escape single quotes within the snapshot name by doubling them
+                var escapedSnapshotName = validatedSnapshotName.Replace("'", "''");
+                var restoreSql = $"RESTORE DATABASE {SqlIdentifierValidator.EscapeIdentifier(validatedTargetDatabaseName)} FROM DATABASE_SNAPSHOT = '{escapedSnapshotName}';";
 
                 // Set back to multi user mode
                 var setMultiUserSql = $"ALTER DATABASE {SqlIdentifierValidator.EscapeIdentifier(validatedTargetDatabaseName)} SET MULTI_USER;";

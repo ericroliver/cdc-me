@@ -68,30 +68,43 @@ CREATE INDEX
 IF NOT EXISTS idx_trace_events_event_time ON trace_events
 (event_time);
 
+-- CDC Capture Headers table (parent)
+CREATE TABLE
+IF NOT EXISTS cdc_capture_headers
+(
+    capture_header_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES trace_sessions(session_id) ON DELETE CASCADE,
+    capture_name VARCHAR(255) NOT NULL,
+    capture_type VARCHAR(50) NOT NULL, -- Baseline, Replay, Optimized
+    capture_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    tables_enabled JSONB,
+    tables_skipped JSONB,
+    total_records INTEGER NOT NULL DEFAULT 0,
+    status VARCHAR(50) NOT NULL DEFAULT 'InProgress',
+    created_by VARCHAR(128) NOT NULL DEFAULT current_user,
+    UNIQUE(session_id, capture_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cdc_capture_headers_session ON cdc_capture_headers(session_id);
+CREATE INDEX IF NOT EXISTS idx_cdc_capture_headers_name ON cdc_capture_headers(capture_name);
+
+-- CDC Captures table (details)
 CREATE TABLE
 IF NOT EXISTS cdc_captures
 (
-    capture_id UUID PRIMARY KEY DEFAULT gen_random_uuid
-(),
-    session_id UUID NOT NULL REFERENCES trace_sessions
-(session_id) ON
-DELETE CASCADE,
-    capture_type VARCHAR(50)
-NOT NULL, -- Baseline, Replay, Optimized
-    capture_time TIMESTAMP
-WITH TIME ZONE NOT NULL DEFAULT NOW
-(),
-    table_name VARCHAR
-(256) NOT NULL,
+    capture_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    capture_header_id UUID REFERENCES cdc_capture_headers(capture_header_id) ON DELETE CASCADE,
+    session_id UUID NOT NULL REFERENCES trace_sessions(session_id) ON DELETE CASCADE,
+    capture_type VARCHAR(50) NOT NULL, -- Baseline, Replay, Optimized
+    capture_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    table_name VARCHAR(256) NOT NULL,
     capture_data JSONB NOT NULL, -- JSON data
     record_count INTEGER NOT NULL,
-    data_hash VARCHAR
-(64) -- SHA256 hash for quick comparison
+    data_hash VARCHAR(64) -- SHA256 hash for quick comparison
 );
 
-CREATE INDEX
-IF NOT EXISTS idx_cdc_captures_session_type ON cdc_captures
-(session_id, capture_type);
+CREATE INDEX IF NOT EXISTS idx_cdc_captures_header ON cdc_captures(capture_header_id);
+CREATE INDEX IF NOT EXISTS idx_cdc_captures_session_type ON cdc_captures(session_id, capture_type);
 
 CREATE TABLE
 IF NOT EXISTS comparison_results
