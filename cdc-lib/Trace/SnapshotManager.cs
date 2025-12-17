@@ -317,7 +317,21 @@ AS SNAPSHOT OF {SqlIdentifierValidator.EscapeIdentifier(validatedDatabaseName)};
             if (string.IsNullOrEmpty(databaseName))
                 return allSnapshots;
 
-            return allSnapshots.Where(s => s.SourceDatabase.Equals(databaseName, StringComparison.OrdinalIgnoreCase)).ToList();
+            _logger.LogInformation("Filtering {TotalCount} snapshot(s) by database name '{DatabaseName}'",
+                allSnapshots.Count, databaseName);
+            
+            foreach (var snapshot in allSnapshots)
+            {
+                _logger.LogInformation("Snapshot '{SnapshotName}' has SourceDatabase '{SourceDatabase}'",
+                    snapshot.SnapshotName, snapshot.SourceDatabase);
+            }
+
+            var filtered = allSnapshots.Where(s => s.SourceDatabase.Equals(databaseName, StringComparison.OrdinalIgnoreCase)).ToList();
+            
+            _logger.LogInformation("After filtering by database name '{DatabaseName}': {FilteredCount} snapshot(s) remain",
+                databaseName, filtered.Count);
+            
+            return filtered;
         }
 
         public async Task<List<SnapshotInfo>> ListSnapshotsAsync()
