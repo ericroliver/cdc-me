@@ -207,11 +207,11 @@ namespace CdcProto.Commands
             throw new InvalidOperationException("Connection string not provided. Please specify --connection parameter or set CDC_SQL_CONNECTION environment variable.");
         }
 
-        private static ILogger CreateLogger()
+        private static ILogger<SnapshotManager> CreateLogger()
         {
             using var loggerFactory = LoggerFactory.Create(builder =>
                 builder.AddConsole().SetMinimumLevel(LogLevel.Warning));
-            return loggerFactory.CreateLogger("SnapshotCommand");
+            return loggerFactory.CreateLogger<SnapshotManager>();
         }
     }
 }

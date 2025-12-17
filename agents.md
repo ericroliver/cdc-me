@@ -48,6 +48,8 @@ like a brand new team member, your understanding of this project and environment
 
 # Developer Warnings Prevention Guide
 
+The most important thing to do after every build is to run ./scripts/lint-check.sh. This will help you find potential issues early.
+
 This document provides specific guidance to help developers avoid the most common warnings in the codebase. These guidelines complement the main rules in `.roo/rules/rules.md`.
 
 ## Common Warnings to Avoid When Writing Code

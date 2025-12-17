@@ -379,11 +379,11 @@ namespace CdcProto.Commands
             };
         }
 
-        private static ILogger CreateLogger()
+        private static ILogger<SnapshotManager> CreateLogger()
         {
             using var loggerFactory = LoggerFactory.Create(builder =>
                 builder.AddConsole().SetMinimumLevel(LogLevel.Warning));
-            return loggerFactory.CreateLogger("ReplayCommand");
+            return loggerFactory.CreateLogger<SnapshotManager>();
         }
     }
 }

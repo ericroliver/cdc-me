@@ -12,9 +12,9 @@ namespace Softbase.Cdc.Trace
     public class SnapshotManager : ISnapshotManager
     {
         private readonly SimpleDac _dac;
-        private readonly ILogger _logger;
+        private readonly ILogger<SnapshotManager> _logger;
 
-        public SnapshotManager(SimpleDac dac, ILogger logger)
+        public SnapshotManager(SimpleDac dac, ILogger<SnapshotManager> logger)
         {
             _dac = dac ?? throw new ArgumentNullException(nameof(dac));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
