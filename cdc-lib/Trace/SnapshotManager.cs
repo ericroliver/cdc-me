@@ -149,39 +149,46 @@ AS SNAPSHOT OF {SqlIdentifierValidator.EscapeIdentifier(validatedDatabaseName)};
                     };
                 }
 
-                // Switch to master database context first
-                await _dac.ExecuteCommandAsync("USE master;");
-
-                // Set database to single user mode
-                var setSingleUserSql = $"ALTER DATABASE {SqlIdentifierValidator.EscapeIdentifier(validatedTargetDatabaseName)} SET SINGLE_USER WITH ROLLBACK IMMEDIATE;";
-
-                // Restore from snapshot - snapshot name must be a string literal (single quotes), not an identifier
                 // Escape single quotes within the snapshot name by doubling them
                 var escapedSnapshotName = validatedSnapshotName.Replace("'", "''");
-                var restoreSql = $"RESTORE DATABASE {SqlIdentifierValidator.EscapeIdentifier(validatedTargetDatabaseName)} FROM DATABASE_SNAPSHOT = '{escapedSnapshotName}';";
 
-                // Set back to multi user mode
-                var setMultiUserSql = $"ALTER DATABASE {SqlIdentifierValidator.EscapeIdentifier(validatedTargetDatabaseName)} SET MULTI_USER;";
+                // Execute all restore operations in a single batch to ensure they run on the same connection
+                // This is critical because each ExecuteCommandAsync opens a new connection
+                var restoreBatchSql = $@"
+USE master;
 
-                _logger.LogInformation("Executing restore SQL: {Sql}", restoreSql);
+ALTER DATABASE {SqlIdentifierValidator.EscapeIdentifier(validatedTargetDatabaseName)}
+SET SINGLE_USER
+WITH ROLLBACK IMMEDIATE;
+
+RESTORE DATABASE {SqlIdentifierValidator.EscapeIdentifier(validatedTargetDatabaseName)}
+FROM DATABASE_SNAPSHOT = '{escapedSnapshotName}';
+
+ALTER DATABASE {SqlIdentifierValidator.EscapeIdentifier(validatedTargetDatabaseName)}
+SET MULTI_USER;
+";
+
+                _logger.LogInformation("Executing restore batch SQL: {Sql}", restoreBatchSql);
 
                 try
                 {
-                    await _dac.ExecuteCommandAsync(setSingleUserSql);
-                    await _dac.ExecuteCommandAsync(restoreSql);
-                    await _dac.ExecuteCommandAsync(setMultiUserSql);
+                    await _dac.ExecuteCommandAsync(restoreBatchSql);
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
                     // Try to set back to multi user mode if restore failed
                     try
                     {
+                        var setMultiUserSql = $@"
+USE master;
+ALTER DATABASE {SqlIdentifierValidator.EscapeIdentifier(validatedTargetDatabaseName)} SET MULTI_USER;";
                         await _dac.ExecuteCommandAsync(setMultiUserSql);
                     }
                     catch (Exception cleanupEx)
                     {
                         _logger.LogError(cleanupEx, "Failed to reset database to multi-user mode after restore failure");
                     }
+                    _logger.LogError(ex, "Restore failed");
                     throw;
                 }
                 _logger.LogInformation("Successfully restored snapshot {SnapshotName} to {TargetDatabase}", validatedSnapshotName, validatedTargetDatabaseName);

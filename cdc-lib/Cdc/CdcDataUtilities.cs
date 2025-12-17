@@ -29,6 +29,30 @@ namespace Softbase.Cdc
             var cdcOnResult = dac.ExecuteCommand(cdcOff);
         }
 
+        /// <summary>
+        /// Check if CDC is enabled on the database
+        /// </summary>
+        /// <param name="dac">Database connection</param>
+        /// <returns>True if CDC is enabled, false otherwise</returns>
+        public static bool IsCdcEnabled(SimpleDac dac)
+        {
+            try
+            {
+                const string sql = @"
+                    SELECT is_cdc_enabled
+                    FROM sys.databases
+                    WHERE name = DB_NAME()";
+
+                var result = dac.ExecuteScalar<bool>(sql);
+                return result;
+            }
+            catch
+            {
+                // If the query fails, CDC is not enabled
+                return false;
+            }
+        }
+
         public static IDictionary<string, IEnumerable<IDictionary<string, object>>> BuildProfile(SimpleDac dac, IEnumerable<SqlTable> tableResult, ILogger logger)
         {
             var allResults = new Dictionary<string, IEnumerable<IDictionary<string, object>>>();
@@ -97,7 +121,14 @@ namespace Softbase.Cdc
                 if (!table.HasPrimaryKey)
                     continue;
 
-                var tableSelect = GetChangesSqlFromTemplate(table.Schema, table.Name);
+                // Skip if CDC is not enabled on this table
+                if (string.IsNullOrEmpty(table.CdcCaptureInstanceName))
+                {
+                    logger.LogDebug("Skipping table {Schema}.{Table} - CDC not enabled", table.Schema, table.Name);
+                    continue;
+                }
+
+                var tableSelect = GetChangesSqlFromTemplate(table);
 
                 try
                 {
@@ -160,7 +191,7 @@ namespace Softbase.Cdc
             };
         }
 
-        private static string GetNetSqlFromTemplate(string schema, string tableName)
+        private static string GetNetSqlFromTemplate(SqlTable table)
         {
             /*
              declare @min BINARY(10), @max BINARY(10);
@@ -171,32 +202,40 @@ namespace Softbase.Cdc
 
              select * from cdc.fn_cdc_get_net_changes_dbo_WO(@min, @max, 'all')
             */
-            // Validate identifiers to prevent SQL injection
-            var validatedSchema = SqlIdentifierValidator.ValidateIdentifier(schema, "schema");
-            var validatedTableName = SqlIdentifierValidator.ValidateIdentifier(tableName, "table name");
+            if (string.IsNullOrEmpty(table.CdcCaptureInstanceName))
+            {
+                throw new InvalidOperationException($"CDC capture instance name not found for table {table.Schema}.{table.Name}");
+            }
+
+            // Validate the capture instance name to prevent SQL injection
+            var validatedCaptureInstance = SqlIdentifierValidator.ValidateIdentifier(table.CdcCaptureInstanceName, "capture instance");
 
             var sb = new StringBuilder();
             sb.AppendLine("declare @min BINARY(10), @max BINARY(10);");
-            sb.AppendLine($"select @min = sys.fn_cdc_get_min_lsn('{validatedSchema}_{validatedTableName}'), @max = sys.fn_cdc_get_max_lsn()");
-            sb.AppendLine($"select * from cdc.fn_cdc_get_net_changes_{validatedSchema}_{validatedTableName}(@min, @max, 'all')");
+            sb.AppendLine($"select @min = sys.fn_cdc_get_min_lsn('{validatedCaptureInstance}'), @max = sys.fn_cdc_get_max_lsn()");
+            sb.AppendLine($"select * from cdc.fn_cdc_get_net_changes_{validatedCaptureInstance}(@min, @max, 'all')");
 
             return sb.ToString();
         }
 
-        private static string GetChangesSqlFromTemplate(string schema, string tableName)
+        private static string GetChangesSqlFromTemplate(SqlTable table)
         {
             /*
              Gets all changes including old and new values for updates
              This allows us to identify exactly which fields changed
             */
-            // Validate identifiers to prevent SQL injection
-            var validatedSchema = SqlIdentifierValidator.ValidateIdentifier(schema, "schema");
-            var validatedTableName = SqlIdentifierValidator.ValidateIdentifier(tableName, "table name");
+            if (string.IsNullOrEmpty(table.CdcCaptureInstanceName))
+            {
+                throw new InvalidOperationException($"CDC capture instance name not found for table {table.Schema}.{table.Name}");
+            }
+
+            // Validate the capture instance name to prevent SQL injection
+            var validatedCaptureInstance = SqlIdentifierValidator.ValidateIdentifier(table.CdcCaptureInstanceName, "capture instance");
 
             var sb = new StringBuilder();
             sb.AppendLine("declare @min BINARY(10), @max BINARY(10);");
-            sb.AppendLine($"select @min = sys.fn_cdc_get_min_lsn('{validatedSchema}_{validatedTableName}'), @max = sys.fn_cdc_get_max_lsn()");
-            sb.AppendLine($"select * from cdc.fn_cdc_get_all_changes_{validatedSchema}_{validatedTableName}(@min, @max, 'all update old')");
+            sb.AppendLine($"select @min = sys.fn_cdc_get_min_lsn('{validatedCaptureInstance}'), @max = sys.fn_cdc_get_max_lsn()");
+            sb.AppendLine($"select * from cdc.fn_cdc_get_all_changes_{validatedCaptureInstance}(@min, @max, 'all update old')");
 
             return sb.ToString();
         }
@@ -360,9 +399,34 @@ namespace Softbase.Cdc
             foreach (var table in allTables)
             {
                 table.Indexes = GetIndexes(dac, table.Schema, table.Name);
+                table.CdcCaptureInstanceName = GetCdcCaptureInstanceName(dac, table.Schema, table.Name);
             }
 
             return allTables;
+        }
+
+        public static string? GetCdcCaptureInstanceName(SimpleDac dac, string schema, string tableName)
+        {
+            try
+            {
+                // Query the cdc.change_tables system table to get the actual capture instance name
+                const string sql = @"
+                    SELECT capture_instance
+                    FROM cdc.change_tables
+                    WHERE source_object_id = OBJECT_ID(@tableName)";
+
+                var parameters = new Dictionary<string, object>
+                {
+                    ["tableName"] = $"{schema}.{tableName}"
+                };
+
+                return dac.ExecuteScalar<string>(sql, parameters);
+            }
+            catch
+            {
+                // If CDC is not enabled or table not found, return null
+                return null;
+            }
         }
 
         public static IEnumerable<SqlIndex> GetIndexes(SimpleDac dac, string schema, string tableName)

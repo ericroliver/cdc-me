@@ -176,6 +176,21 @@ public class CdcController : ControllerBase
             var testDac = _connectionFactory.CreateDac(DatabaseRole.TestDatabase, _logger);
             var cdcMeDac = _connectionFactory.CreateDac(DatabaseRole.CdcMeDatabase, _logger);
 
+            // Check if CDC is enabled before attempting to capture
+            if (!CdcDataUtilities.IsCdcEnabled(testDac))
+            {
+                _logger.LogWarning("CDC is not enabled on the database. Cannot capture CDC data.");
+                return Ok(new StopCdcResponse
+                {
+                    Success = false,
+                    SessionName = request.SessionName,
+                    CaptureName = request.CaptureName,
+                    Message = "CDC is not currently running on the database. No data to capture.",
+                    TablesWithChanges = new List<string>(),
+                    TotalRecords = 0
+                });
+            }
+
             // Perform CDC capture
             var captureResult = await PerformCdcCaptureAsync(
                 testDac,

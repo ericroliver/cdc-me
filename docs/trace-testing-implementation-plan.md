@@ -63,18 +63,37 @@ CREATE TABLE trace_events (
 CREATE INDEX idx_trace_events_session_execution ON trace_events(session_id, execution_order);
 CREATE INDEX idx_trace_events_event_time ON trace_events(event_time);
 
-CREATE TABLE cdc_captures (
-    capture_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+CREATE TABLE cdc_capture_headers (
+    capture_header_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id UUID NOT NULL REFERENCES trace_sessions(session_id) ON DELETE CASCADE,
-    capture_type VARCHAR(50) NOT NULL, -- Baseline, Replay, Optimized
+    capture_name VARCHAR(255) NOT NULL,
+    capture_type VARCHAR(50) NOT NULL,
     capture_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    table_name VARCHAR(256) NOT NULL,
-    capture_data JSONB NOT NULL, -- JSON data
-    record_count INTEGER NOT NULL,
-    data_hash VARCHAR(64) -- SHA256 hash for quick comparison
+    tables_to_include JSONB,
+    tables_to_exclude JSONB,
+    tables_enabled JSONB NOT NULL,
+    tables_skipped JSONB,
+    total_records INTEGER NOT NULL DEFAULT 0,
+    status VARCHAR(50) NOT NULL DEFAULT 'Completed',
+    error_messages JSONB,
+    created_by VARCHAR(128) NOT NULL DEFAULT current_user,
+    description TEXT
 );
 
-CREATE INDEX idx_cdc_captures_session_type ON cdc_captures(session_id, capture_type);
+CREATE INDEX idx_cdc_capture_headers_session ON cdc_capture_headers(session_id);
+CREATE INDEX idx_cdc_capture_headers_capture_type ON cdc_capture_headers(capture_type);
+
+CREATE TABLE cdc_captures (
+    capture_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    capture_header_id UUID NOT NULL REFERENCES cdc_capture_headers(capture_header_id) ON DELETE CASCADE,
+    table_name VARCHAR(256) NOT NULL,
+    capture_data JSONB NOT NULL,
+    record_count INTEGER NOT NULL,
+    data_hash VARCHAR(64)
+);
+
+CREATE INDEX idx_cdc_captures_header ON cdc_captures(capture_header_id);
+CREATE INDEX idx_cdc_captures_table_name ON cdc_captures(table_name);
 
 CREATE TABLE comparison_results (
     comparison_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

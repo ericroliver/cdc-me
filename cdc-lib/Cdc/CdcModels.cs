@@ -24,6 +24,7 @@ public class SqlTable
     public string Schema { get; set; }
     public string Name { get; set; }
     public IEnumerable<SqlIndex> Indexes { get; set; } = new List<SqlIndex>();
+    public string? CdcCaptureInstanceName { get; set; }
 
     public bool HasPrimaryKey
     {
