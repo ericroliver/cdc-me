@@ -62,13 +62,13 @@ public class CdcController : ControllerBase
 
             // Step 2: Get all tables and apply filtering
             var allTables = CdcDataUtilities.GetTables(testDac);
-            
+
             // Log all table names for debugging
             _logger.LogDebug("All tables from database: {Tables}",
                 string.Join(", ", allTables.Select(t => $"{t.Schema}.{t.Name}")));
             _logger.LogDebug("Tables to include from request: {Include}",
                 request.TablesToInclude != null ? string.Join(", ", request.TablesToInclude) : "null");
-            
+
             var filteredTables = FilterTables(allTables, request.TablesToInclude, request.TablesToExclude);
 
             _logger.LogDebug("Found {TotalTables} total tables, {FilteredTables} after filtering",
@@ -115,7 +115,7 @@ public class CdcController : ControllerBase
                 var errorMsg = $"None of the {request.TablesToInclude.Count} requested tables could be CDC-enabled. " +
                               $"Tables may not exist, lack primary keys, or have other issues. Check tablesSkipped and errors for details.";
                 _logger.LogError(errorMsg);
-                
+
                 return BadRequest(new StartCdcResponse
                 {
                     Success = false,
@@ -433,7 +433,7 @@ public class CdcController : ControllerBase
         };
 
         var configJson = await cdcMeDac.ExecuteScalarAsync<string>(sql, parameters);
-        
+
         if (string.IsNullOrEmpty(configJson))
         {
             _logger.LogWarning("No configuration found for session {SessionName}, using default (no filters)", sessionName);
