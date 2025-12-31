@@ -335,7 +335,8 @@ public class CdcCaptureComparer
         var allFields = baselineRecord.Keys.Union(testRecord.Keys);
         foreach (var fieldName in allFields)
         {
-            if (fieldsToIgnoreSet.Contains(fieldName))
+            // Check if field should be ignored (exact match or without old_/new_ prefix)
+            if (ShouldIgnoreField(fieldName, fieldsToIgnoreSet))
                 continue;
 
             var baselineValue = baselineRecord.TryGetValue(fieldName, out var bVal) ? bVal : null;
@@ -355,6 +356,32 @@ public class CdcCaptureComparer
                 });
             }
         }
+    }
+
+    /// <summary>
+    /// Checks if a field should be ignored based on the ignore list, including checking with prefixes removed
+    /// </summary>
+    private bool ShouldIgnoreField(string fieldName, HashSet<string> fieldsToIgnoreSet)
+    {
+        // Check exact match first
+        if (fieldsToIgnoreSet.Contains(fieldName))
+            return true;
+
+        // Check if field has old_ or new_ prefix and the base name matches
+        if (fieldName.StartsWith("old_", StringComparison.OrdinalIgnoreCase))
+        {
+            var baseFieldName = fieldName.Substring(4);
+            if (fieldsToIgnoreSet.Contains(baseFieldName))
+                return true;
+        }
+        else if (fieldName.StartsWith("new_", StringComparison.OrdinalIgnoreCase))
+        {
+            var baseFieldName = fieldName.Substring(4);
+            if (fieldsToIgnoreSet.Contains(baseFieldName))
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>

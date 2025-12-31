@@ -127,8 +127,16 @@ public class CdcController : ControllerBase
                 });
             }
 
-            // Step 5: Create or update session in trace database
-            await CreateOrUpdateSessionAsync(request.SessionName, request.TablesToInclude, request.TablesToExclude);
+            // Step 5: Create or update session in trace database (non-blocking - don't fail if this fails)
+            try
+            {
+                await CreateOrUpdateSessionAsync(request.SessionName, request.TablesToInclude, request.TablesToExclude);
+            }
+            catch (Exception sessionEx)
+            {
+                _logger.LogWarning(sessionEx, "Failed to create/update session in trace database. CDC is still enabled. Session: {SessionName}", request.SessionName);
+                // Don't fail the whole operation - CDC is already enabled successfully
+            }
 
             // Build response
             response.Success = true;

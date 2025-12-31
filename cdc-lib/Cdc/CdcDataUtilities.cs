@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using Microsoft.Extensions.Logging;
 using Softbase.Cdc.Utilities;
 
@@ -372,15 +373,42 @@ namespace Softbase.Cdc
                         enableTableCdc = $"EXEC sys.sp_cdc_enable_table @source_schema = '{validatedSchema}', @source_name = '{validatedTableName}', @role_name = null, @supports_net_changes = 1, @index_name = null;";
                     }
 
-                    try
+                    // Retry logic for transient errors like "Resource temporarily unavailable"
+                    const int maxRetries = 3;
+                    var retryDelays = new[] { 1000, 2000, 4000 }; // Exponential backoff in milliseconds
+
+                    for (int attempt = 0; attempt <= maxRetries; attempt++)
                     {
-                        logger.LogDebug($"enabling cdc for {validatedSchema}.{validatedTableName}, index: {validatedIndexName} : {enableTableCdc}");
-                        var enableTableResult = dac.ExecuteCommand(enableTableCdc);
+                        try
+                        {
+                            logger.LogDebug($"enabling cdc for {validatedSchema}.{validatedTableName}, index: {validatedIndexName} (attempt {attempt + 1}/{maxRetries + 1})");
+                            var enableTableResult = dac.ExecuteCommand(enableTableCdc);
+                            logger.LogDebug($"Successfully enabled CDC for {validatedSchema}.{validatedTableName}");
+                            break; // Success, exit retry loop
+                        }
+                        catch (Exception ex)
+                        {
+                            var isLastAttempt = attempt == maxRetries;
+                            var isTransientError = ex.Message.Contains("Resource temporarily unavailable") ||
+                                                  ex.Message.Contains("timeout") ||
+                                                  ex.Message.Contains("deadlock");
+
+                            if (isTransientError && !isLastAttempt)
+                            {
+                                var delay = retryDelays[attempt];
+                                logger.LogWarning($"Transient error enabling CDC on {table.Schema}.{table.Name} (attempt {attempt + 1}): {ex.Message}. Retrying in {delay}ms...");
+                                Thread.Sleep(delay);
+                            }
+                            else
+                            {
+                                logger.LogError(ex, $"Unable to turn CDC on for table {table.Schema}.{table.Name} after {attempt + 1} attempts");
+                                throw; // Re-throw on last attempt or non-transient error
+                            }
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(ex, $"Unable to turn CDC on for table {table.Schema}.{table.Name}");
-                    }
+
+                    // Add a small delay between tables to reduce lock contention
+                    Thread.Sleep(100);
                 }
             }
         }
