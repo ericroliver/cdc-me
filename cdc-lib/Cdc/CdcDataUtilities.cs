@@ -348,7 +348,6 @@ namespace Softbase.Cdc
 
         public static void EnableTableCdc(SimpleDac dac, IEnumerable<SqlTable> tableResult, ILogger logger)
         {
-            var tableCdcOnTemplate = "EXEC sys.sp_cdc_enable_table @source_schema = '{0}',@source_name = '{1}',@role_name = null,@supports_net_changes =1,@index_name ='{2}';";
             foreach (var table in tableResult)
             {
                 if (table.Indexes.Count() > 0)
@@ -362,7 +361,16 @@ namespace Softbase.Cdc
                         ? SqlIdentifierValidator.ValidateIdentifier(index.IndexName, "index name")
                         : null;
 
-                    var enableTableCdc = string.Format(tableCdcOnTemplate, validatedSchema, validatedTableName, validatedIndexName);
+                    // Build SQL command with proper null handling for optional parameters
+                    string enableTableCdc;
+                    if (validatedIndexName != null)
+                    {
+                        enableTableCdc = $"EXEC sys.sp_cdc_enable_table @source_schema = '{validatedSchema}', @source_name = '{validatedTableName}', @role_name = null, @supports_net_changes = 1, @index_name = '{validatedIndexName}';";
+                    }
+                    else
+                    {
+                        enableTableCdc = $"EXEC sys.sp_cdc_enable_table @source_schema = '{validatedSchema}', @source_name = '{validatedTableName}', @role_name = null, @supports_net_changes = 1, @index_name = null;";
+                    }
 
                     try
                     {
