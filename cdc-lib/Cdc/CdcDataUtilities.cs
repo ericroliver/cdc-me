@@ -445,7 +445,12 @@ namespace Softbase.Cdc
             var escapedSchema = SqlIdentifierValidator.EscapeIdentifier(schema);
             var escapedTableName = SqlIdentifierValidator.EscapeIdentifier(tableName);
 
-            var tableSelect = $"EXEC sp_helpindex '{escapedSchema}.{escapedTableName}';";
+            // sp_helpindex expects a string parameter like 'schema.table' or '[schema].[table]'
+            // We need to escape any single quotes in the bracketed identifiers for the SQL string
+            var tableIdentifier = $"{escapedSchema}.{escapedTableName}";
+            var escapedTableIdentifier = tableIdentifier.Replace("'", "''");
+
+            var tableSelect = $"EXEC sp_helpindex '{escapedTableIdentifier}';";
             return dac.ExecuteReader<IEnumerable<SqlIndex>>(tableSelect, (reader) =>
             {
                 var models = new List<SqlIndex>();
