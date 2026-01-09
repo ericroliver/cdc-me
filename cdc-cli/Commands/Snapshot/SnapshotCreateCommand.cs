@@ -35,7 +35,7 @@ public class SnapshotCreateCommand : ApiCommandBase
     {
         // Add options
         var databaseOption = new Option<string>(
-            aliases: new[] { "--database", "-d" },
+            aliases: new[] { "--database" },
             description: "Database name (required)")
         {
             IsRequired = true
@@ -94,9 +94,8 @@ public class SnapshotCreateCommand : ApiCommandBase
             // Build request object from CLI params
             var requestFromParams = new
             {
-                Database = database,
-                SnapshotName = name,
-                Description = description
+                DatabaseName = database,
+                SnapshotName = name
             };
 
             // Get final request using input precedence (data, file, stdin, params)

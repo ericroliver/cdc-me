@@ -13,21 +13,44 @@ var possibleEnvPaths = new[]
     Path.Combine(Directory.GetCurrentDirectory(), ".env"), // Current directory
     Path.Combine(Directory.GetCurrentDirectory(), "..", ".env"), // Parent directory (when running from cdc-api)
     Path.Combine(AppContext.BaseDirectory, ".env"), // Application base directory
-    Path.Combine(AppContext.BaseDirectory, "..", ".env") // Parent of application base directory
+    Path.Combine(AppContext.BaseDirectory, "..", ".env"), // Parent of application base directory
+    "/Users/eo/code/cdc-me/.env" // Absolute path as fallback
 };
 
+var envFileLoaded = false;
 foreach (var envPath in possibleEnvPaths)
 {
+    Console.WriteLine($"Checking for .env file at: {envPath}");
     if (File.Exists(envPath))
     {
-        Env.Load(envPath);
-        Console.WriteLine($"Loaded .env file from: {envPath}");
-
-        // Add environment variables to configuration
-        builder.Configuration.AddEnvironmentVariables();
-        break;
+        try
+        {
+            Env.Load(envPath);
+            Console.WriteLine($"✓ Successfully loaded .env file from: {envPath}");
+            
+            // Verify the variables were loaded into environment
+            var testDb = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION");
+            var cdcmeDb = Environment.GetEnvironmentVariable("CDCME_DB_CONNECTION");
+            Console.WriteLine($"TEST_DB_CONNECTION loaded: {!string.IsNullOrEmpty(testDb)}");
+            Console.WriteLine($"CDCME_DB_CONNECTION loaded: {!string.IsNullOrEmpty(cdcmeDb)}");
+            
+            envFileLoaded = true;
+            break;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Error loading .env file: {ex.Message}");
+        }
     }
 }
+
+if (!envFileLoaded)
+{
+    Console.WriteLine("⚠ No .env file found. Relying on system environment variables.");
+}
+
+// Add environment variables to configuration (AFTER loading .env file)
+builder.Configuration.AddEnvironmentVariables();
 
 // Configure URLs to accept connections on any IP address when not specified
 if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")))

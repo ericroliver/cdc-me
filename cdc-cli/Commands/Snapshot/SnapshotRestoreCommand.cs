@@ -35,7 +35,7 @@ public class SnapshotRestoreCommand : ApiCommandBase
     {
         // Add options
         var databaseOption = new Option<string>(
-            aliases: new[] { "--database", "-d" },
+            aliases: new[] { "--database" },
             description: "Database name (required)")
         {
             IsRequired = true
@@ -95,9 +95,8 @@ public class SnapshotRestoreCommand : ApiCommandBase
             // Build request object from CLI params
             var requestFromParams = new
             {
-                Database = database,
-                SnapshotName = name,
-                CloseConnections = force
+                DatabaseName = database,
+                SnapshotName = name
             };
 
             // Get final request using input precedence (data, file, stdin, params)

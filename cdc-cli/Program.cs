@@ -78,6 +78,11 @@ public class Program
             jsonHandler,
             serviceProvider.GetRequiredService<ILogger<CdcCaptureCommand>>(),
             configuration));
+        cdcCommand.AddCommand(new CdcCompareCommand(
+            apiClient,
+            jsonHandler,
+            serviceProvider.GetRequiredService<ILogger<CdcCompareCommand>>(),
+            configuration));
         rootCommand.AddCommand(cdcCommand);
 
         // Create Snapshot command group
@@ -239,7 +244,13 @@ public class Program
         services.AddLogging(builder =>
         {
             builder.AddConsole();
-            builder.SetMinimumLevel(configuration.Verbose ? LogLevel.Debug : LogLevel.Information);
+            builder.SetMinimumLevel(configuration.Verbose ? LogLevel.Debug : LogLevel.Warning);
+            
+            // Suppress HTTP client logging unless verbose mode is enabled
+            if (!configuration.Verbose)
+            {
+                builder.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning);
+            }
         });
 
         // Register HTTP client factory and CDC API client
