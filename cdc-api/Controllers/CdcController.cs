@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using cdc_api.Models;
+using CdcModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Softbase;
@@ -706,7 +706,7 @@ public class CdcController : ControllerBase
     /// <param name="request">Comparison request parameters</param>
     /// <returns>Detailed comparison results</returns>
     [HttpPost("compare")]
-    public async Task<ActionResult<cdc_api.Models.CompareCapturesResponse>> CompareCapturesAsync([FromBody] cdc_api.Models.CompareCapturesRequest request)
+    public async Task<ActionResult<CdcModels.CompareCapturesResponse>> CompareCapturesAsync([FromBody] CdcModels.CompareCapturesRequest request)
     {
         if (!ModelState.IsValid)
         {
@@ -734,10 +734,10 @@ public class CdcController : ControllerBase
             var result = await comparer.CompareCapturesAsync(cdcRequest);
 
             // Map to API response model
-            var response = new cdc_api.Models.CompareCapturesResponse
+            var response = new CdcModels.CompareCapturesResponse
             {
                 IsMatch = result.IsMatch,
-                Failures = result.Failures.Select(f => new cdc_api.Models.CaptureComparisonFailure
+                Failures = result.Failures.Select(f => new CdcModels.CaptureComparisonFailure
                 {
                     TableName = f.TableName,
                     FailureType = f.FailureType,
@@ -747,7 +747,7 @@ public class CdcController : ControllerBase
                     TestValue = f.TestValue,
                     Description = f.Description
                 }).ToList(),
-                Summary = new cdc_api.Models.ComparisonSummary
+                Summary = new CdcModels.ComparisonSummary
                 {
                     TablesCompared = result.Summary.TablesCompared,
                     RecordsCompared = result.Summary.RecordsCompared,
@@ -775,7 +775,7 @@ public class CdcController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error comparing captures");
-            return BadRequest(new cdc_api.Models.CompareCapturesResponse
+            return BadRequest(new CdcModels.CompareCapturesResponse
             {
                 IsMatch = false,
                 Errors = new List<string> { $"Comparison failed: {ex.Message}" }

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using cdc_api.Controllers;
-using cdc_api.Models;
+using CdcModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -371,7 +371,7 @@ public class CdcControllerTests
                     Description = "Amount mismatch"
                 }
             },
-            Summary = new cdc_api.Models.ComparisonSummary
+            Summary = new CdcModels.ComparisonSummary
             {
                 TablesCompared = 1,
                 RecordsCompared = 10,
@@ -457,7 +457,7 @@ public class CdcControllerTests
     public void ComparisonSummary_InitializesWithZeroValues()
     {
         // Arrange & Act
-        var summary = new cdc_api.Models.ComparisonSummary();
+        var summary = new CdcModels.ComparisonSummary();
 
         // Assert
         Assert.Equal(0, summary.TablesCompared);
@@ -479,7 +479,7 @@ public class CdcControllerTests
         {
             IsMatch = true,
             Failures = new List<CaptureComparisonFailure>(),
-            Summary = new cdc_api.Models.ComparisonSummary
+            Summary = new CdcModels.ComparisonSummary
             {
                 TablesCompared = 5,
                 RecordsCompared = 100

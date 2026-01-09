@@ -27,6 +27,7 @@
     <ItemGroup>
         <ProjectReference Include="..\cdc-api\cdc-api.csproj" />
         <ProjectReference Include="..\cdc-lib\cdc-lib.csproj" />
+        <ProjectReference Include="..\cdc-models\cdc-models.csproj" />
     </ItemGroup>
 
 </Project>

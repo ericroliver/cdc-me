@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace cdc_api.Models;
+namespace CdcModels;
 
 /// <summary>
 /// Request model for starting CDC operations
