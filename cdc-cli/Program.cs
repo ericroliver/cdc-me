@@ -26,7 +26,7 @@ public class Program
         var configuration = CliConfiguration.LoadFromEnvironment();
 
         // Build service provider
-        var serviceProvider = ConfigureServices(configuration);
+        using var serviceProvider = ConfigureServices(configuration);
 
         // Create root command
         var rootCommand = new RootCommand("CDC CLI - Command-line interface for CDC Testing Framework API");

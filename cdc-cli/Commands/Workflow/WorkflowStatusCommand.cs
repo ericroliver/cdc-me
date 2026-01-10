@@ -97,14 +97,9 @@ public class WorkflowStatusCommand : ApiCommandBase
                 return ExitCodeValidationError;
             }
 
-            if (watch)
-            {
-                return await WatchWorkflowStatusAsync(workflowGuid, interval);
-            }
-            else
-            {
-                return await GetWorkflowStatusOnceAsync(workflowGuid);
-            }
+            return watch
+                ? await WatchWorkflowStatusAsync(workflowGuid, interval)
+                : await GetWorkflowStatusOnceAsync(workflowGuid);
         }
         catch (Exception ex)
         {
