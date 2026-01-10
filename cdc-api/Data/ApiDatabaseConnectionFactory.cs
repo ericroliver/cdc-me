@@ -33,11 +33,33 @@ namespace cdc_api.Data
 
         private static string GetConnectionString(IConfiguration configuration, string key)
         {
-            // Try ConnectionStrings section first, then direct configuration
-            var connectionString = configuration.GetConnectionString(key) ?? configuration[key];
+            // Debug logging
+            Console.WriteLine($"[ApiDatabaseConnectionFactory] Looking for key: {key}");
+
+            // Try ConnectionStrings section first
+            var fromConnectionStrings = configuration.GetConnectionString(key);
+            Console.WriteLine($"[ApiDatabaseConnectionFactory] From ConnectionStrings section: {(fromConnectionStrings != null ? "FOUND" : "NOT FOUND")}");
+
+            // Then try direct configuration
+            var fromDirectConfig = configuration[key];
+            Console.WriteLine($"[ApiDatabaseConnectionFactory] From direct config: {(fromDirectConfig != null ? "FOUND" : "NOT FOUND")}");
+
+            // Check environment variable directly
+            var fromEnv = Environment.GetEnvironmentVariable(key);
+            Console.WriteLine($"[ApiDatabaseConnectionFactory] From Environment.GetEnvironmentVariable: {(fromEnv != null ? "FOUND" : "NOT FOUND")}");
+
+            var connectionString = fromConnectionStrings ?? fromDirectConfig;
 
             if (string.IsNullOrEmpty(connectionString))
             {
+                // If not in configuration, try environment variable directly
+                connectionString = fromEnv;
+                if (!string.IsNullOrEmpty(connectionString))
+                {
+                    Console.WriteLine($"[ApiDatabaseConnectionFactory] Using environment variable directly for {key}");
+                    return connectionString;
+                }
+
                 throw new InvalidOperationException($"Connection string for {key} not found in configuration");
             }
 

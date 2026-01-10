@@ -58,7 +58,7 @@ namespace Softbase.Cdc.Trace
                 var snapshotFiles = new List<string>();
                 foreach (var file in dataFiles)
                 {
-                    var snapshotFileName = $"{file.LogicalName}_snapshot.ss";
+                    var snapshotFileName = $"{validatedSnapshotName}_{file.LogicalName}.ss";
                     // Handle Windows paths even when running on Linux (e.g., in Docker)
                     // Extract directory from path using string manipulation, preserving original separator
                     var physicalPath = file.PhysicalName;

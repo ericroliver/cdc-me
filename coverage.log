@@ -1,0 +1,2 @@
+timestamp,line_coverage_pct,branch_coverage_pct,lines_covered,lines_valid,branches_covered,branches_valid
+2026-01-09T13:45:02Z,21.74,11.01,985,4529,165,1498

@@ -2,7 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
+using System.Linq;
 using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks;
+using Microsoft.Data.SqlClient;
 
 namespace Softbase
 {
@@ -454,6 +459,57 @@ namespace Softbase
                 value = (T)reader[fieldName];
 
             return value;
+        }
+
+        public static async Task ExportTablesAsync(string connectionString, string outputPath)
+        {
+            Directory.CreateDirectory(outputPath);
+
+            await using var conn = new SqlConnection(connectionString);
+            await conn.OpenAsync();
+
+            await using var tablesCmd = new SqlCommand(@"
+        SELECT s.name AS SchemaName, t.name AS TableName
+        FROM sys.tables t
+        JOIN sys.schemas s ON t.schema_id = s.schema_id
+        WHERE t.is_ms_shipped = 0
+        ORDER BY s.name, t.name;", conn);
+
+            await using var reader = await tablesCmd.ExecuteReaderAsync();
+            var tables = new List<(string Schema, string Table)>();
+
+            while (await reader.ReadAsync())
+                tables.Add((reader.GetString(0), reader.GetString(1)));
+
+            foreach (var (schema, table) in tables)
+            {
+                var sb = new StringBuilder();
+                sb.AppendLine($"-- {schema}.{table}");
+                sb.AppendLine($"SELECT * FROM [{schema}].[{table}];");
+
+                var file = Path.Combine(outputPath, $"{schema}.{table}.sql");
+                await File.WriteAllTextAsync(file, sb.ToString());
+            }
+        }
+        public static string TablesInRightNotInLeft(string pathLeft, string pathRight)
+        {
+            var leftTables = Directory.GetFiles(pathLeft, "*.sql")
+                .Select(f => Path.GetFileNameWithoutExtension(f))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var rightTables = Directory.GetFiles(pathRight, "*.sql")
+                .Select(f => Path.GetFileNameWithoutExtension(f))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var onlyInRight = rightTables
+                .Except(leftTables, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(t => t)
+                .ToList();
+
+            return JsonSerializer.Serialize(onlyInRight, new JsonSerializerOptions
+            {
+                WriteIndented = true
+            });
         }
     }
 }

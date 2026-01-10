@@ -6,6 +6,8 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsNotAsErrors>CS8632</WarningsNotAsErrors>
     <NoWarn>CS8632</NoWarn>
+    <!-- Suppress IL2026 trim warnings for JSON serialization used in utility methods -->
+    <NoWarn>$(NoWarn);IL2026</NoWarn>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <LangVersion>latestmajor</LangVersion>

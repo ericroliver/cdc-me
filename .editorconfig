@@ -9,8 +9,9 @@ insert_final_newline = true
 trim_trailing_whitespace = true
 indent_style = space
 
+
 # Specific text files - Enforce encoding here
-[*.{cs,csx,vb,vbx,csproj,sln,json,xml,md,sh,yml,yaml,config}]
+[*.{csproj,sln,json,xml,md,sh,yml,yaml,config}]
 charset = utf-8
 
 # Code files

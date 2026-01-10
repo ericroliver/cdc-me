@@ -28,5 +28,6 @@
     <ProjectReference Include="..\cdc-lib\cdc-lib.csproj">
       <GlobalPropertiesToRemove></GlobalPropertiesToRemove>
     </ProjectReference>
+    <ProjectReference Include="..\cdc-models\cdc-models.csproj" />
   </ItemGroup>
 </Project>

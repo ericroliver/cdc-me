@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using cdc_api.Models;
+using CdcModels;
 using Xunit;
 
 namespace cdc_api.Tests.Models;

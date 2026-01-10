@@ -18,8 +18,11 @@ COPY openssl.cnf /etc/ssl/openssl.cnf
 # Copy project files
 COPY ["cdc-api/cdc-api.csproj", "cdc-api/"]
 COPY ["cdc-lib/cdc-lib.csproj", "cdc-lib/"]
+COPY ["cdc-models/cdc-models.csproj", "cdc-models/"]
+COPY ["cdc-cli/cdc-cli.csproj", "cdc-cli/"]
 COPY ["cdc-proto/cdc-utility.csproj", "cdc-proto/"]
 COPY ["cdc-api.Tests/cdc-api.Tests.csproj", "cdc-api.Tests/"]
+COPY ["cdc-cli.Tests/cdc-cli.Tests.csproj", "cdc-cli.Tests/"]
 COPY ["cdc-me.sln", "./"]
 
 # Restore dependencies using solution file
