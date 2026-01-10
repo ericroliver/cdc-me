@@ -83,7 +83,7 @@ public class WorkflowExecuteCommand : ApiCommandBase
         {
             // Get workflow request from file, data, or stdin
             var request = await JsonHandler.GetInputAsync<object>(data, file, new { }, CancellationToken.None);
-            
+
             if (request == null)
             {
                 await Console.Error.WriteLineAsync("Error: Workflow configuration required (use --file, --data, or stdin)");
@@ -111,7 +111,7 @@ public class WorkflowExecuteCommand : ApiCommandBase
                     await Console.Error.WriteLineAsync($"Workflow started: {response.WorkflowId}");
                     await Console.Error.WriteLineAsync($"Check status with: cdc-cli workflow status {response.WorkflowId}");
                 }
-                
+
                 // Output just the essential info for scripting
                 var asyncResult = new { response.WorkflowId, Status = "Running" };
                 await WriteResponseAsync(asyncResult);
@@ -134,7 +134,7 @@ public class WorkflowExecuteCommand : ApiCommandBase
 
             // Output the full result
             await WriteResponseAsync(response);
-            
+
             // Return appropriate exit code
             return response.Success ? ExitCodeSuccess : ExitCodeApiError;
         }

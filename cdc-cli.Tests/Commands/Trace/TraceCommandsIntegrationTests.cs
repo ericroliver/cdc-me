@@ -45,9 +45,9 @@ public class TraceCommandsIntegrationTests : IDisposable
         _mockEventsLogger = new Mock<ILogger<TraceEventsCommand>>();
         _mockDeleteLogger = new Mock<ILogger<TraceDeleteCommand>>();
         _mockJsonLogger = new Mock<ILogger<JsonHandler>>();
-        
-        _configuration = new CliConfiguration 
-        { 
+
+        _configuration = new CliConfiguration
+        {
             BaseUrl = "http://localhost:5000",
             OutputFormat = OutputFormat.Json
         };
@@ -442,7 +442,7 @@ public class TraceCommandsIntegrationTests : IDisposable
 
         // First page
         SetupHttpResponse($"/api/trace/sessions/{sessionId}/events?limit=100&offset=0", new[] { new { EventId = 1 } });
-        
+
         // Second page
         SetupHttpResponse($"/api/trace/sessions/{sessionId}/events?limit=100&offset=100", new[] { new { EventId = 101 } });
 
@@ -507,11 +507,11 @@ public class TraceCommandsIntegrationTests : IDisposable
     private void SetupHttpResponse<T>(string endpoint, T response)
     {
         var jsonResponse = System.Text.Json.JsonSerializer.Serialize(response);
-        
+
         _mockHttpHandler.Protected()
             .Setup<Task<HttpResponseMessage>>(
                 "SendAsync",
-                ItExpr.Is<HttpRequestMessage>(req => 
+                ItExpr.Is<HttpRequestMessage>(req =>
                     req.RequestUri != null && req.RequestUri.PathAndQuery.Contains(endpoint)),
                 ItExpr.IsAny<CancellationToken>())
             .ReturnsAsync(new HttpResponseMessage
@@ -530,11 +530,11 @@ public class TraceCommandsIntegrationTests : IDisposable
     private void SetupHttpDeleteResponse<T>(string endpoint, T response)
     {
         var jsonResponse = System.Text.Json.JsonSerializer.Serialize(response);
-        
+
         _mockHttpHandler.Protected()
             .Setup<Task<HttpResponseMessage>>(
                 "SendAsync",
-                ItExpr.Is<HttpRequestMessage>(req => 
+                ItExpr.Is<HttpRequestMessage>(req =>
                     req.Method == HttpMethod.Delete &&
                     req.RequestUri != null && req.RequestUri.PathAndQuery.Contains(endpoint)),
                 ItExpr.IsAny<CancellationToken>())
@@ -556,7 +556,7 @@ public class TraceCommandsIntegrationTests : IDisposable
         _mockHttpHandler.Protected()
             .Setup<Task<HttpResponseMessage>>(
                 "SendAsync",
-                ItExpr.Is<HttpRequestMessage>(req => 
+                ItExpr.Is<HttpRequestMessage>(req =>
                     req.RequestUri != null && req.RequestUri.PathAndQuery.Contains(endpoint)),
                 ItExpr.IsAny<CancellationToken>())
             .ReturnsAsync(new HttpResponseMessage

@@ -174,7 +174,7 @@ public class WorkflowStatusCommand : ApiCommandBase
                         {
                             await Console.Out.WriteLineAsync(new string('-', 50));
                         }
-                        
+
                         await DisplayTextStatusAsync(response, DateTime.UtcNow - startTime);
                         lastStatus = response.Status;
                     }
@@ -200,8 +200,8 @@ public class WorkflowStatusCommand : ApiCommandBase
                     }
 
                     // Return success only if workflow completed successfully
-                    return response.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase) 
-                        ? ExitCodeSuccess 
+                    return response.Status.Equals("Completed", StringComparison.OrdinalIgnoreCase)
+                        ? ExitCodeSuccess
                         : ExitCodeApiError;
                 }
 
@@ -241,7 +241,7 @@ public class WorkflowStatusCommand : ApiCommandBase
         await Console.Out.WriteLineAsync($"Workflow ID: {status.WorkflowId}");
         await Console.Out.WriteLineAsync($"Name: {status.Name}");
         await Console.Out.WriteLineAsync($"Status: {GetColoredStatus(status.Status)}");
-        
+
         if (!string.IsNullOrEmpty(status.CurrentPhase))
         {
             await Console.Out.WriteLineAsync($"Current Phase: {status.CurrentPhase}");

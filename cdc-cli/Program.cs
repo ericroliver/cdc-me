@@ -245,7 +245,7 @@ public class Program
         {
             builder.AddConsole();
             builder.SetMinimumLevel(configuration.Verbose ? LogLevel.Debug : LogLevel.Warning);
-            
+
             // Suppress HTTP client logging unless verbose mode is enabled
             if (!configuration.Verbose)
             {

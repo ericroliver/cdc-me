@@ -111,7 +111,7 @@ public class CdcStopCommand : ApiCommandBase
 
             // Write response
             await WriteResponseAsync(response);
-            
+
             // Set exit code based on success
             Environment.ExitCode = response.Success ? ExitCodeSuccess : ExitCodeApiError;
         }

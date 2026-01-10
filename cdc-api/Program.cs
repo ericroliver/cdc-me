@@ -27,13 +27,13 @@ foreach (var envPath in possibleEnvPaths)
         {
             Env.Load(envPath);
             Console.WriteLine($"✓ Successfully loaded .env file from: {envPath}");
-            
+
             // Verify the variables were loaded into environment
             var testDb = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION");
             var cdcmeDb = Environment.GetEnvironmentVariable("CDCME_DB_CONNECTION");
             Console.WriteLine($"TEST_DB_CONNECTION loaded: {!string.IsNullOrEmpty(testDb)}");
             Console.WriteLine($"CDCME_DB_CONNECTION loaded: {!string.IsNullOrEmpty(cdcmeDb)}");
-            
+
             envFileLoaded = true;
             break;
         }

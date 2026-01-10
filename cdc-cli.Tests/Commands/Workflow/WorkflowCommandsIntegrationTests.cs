@@ -32,9 +32,9 @@ public class WorkflowCommandsIntegrationTests : IDisposable
     private readonly StringWriter _consoleError;
     private readonly TextWriter _originalError;
 
-    private static readonly JsonSerializerOptions JsonOptions = new() 
-    { 
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase 
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
     /// <summary>

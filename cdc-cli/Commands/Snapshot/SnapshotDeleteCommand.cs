@@ -73,7 +73,7 @@ public class SnapshotDeleteCommand : ApiCommandBase
                 Console.WriteLine($"WARNING: You are about to permanently delete snapshot '{name}'.");
                 Console.Write("Are you sure you want to continue? (y/N): ");
                 var userResponse = Console.ReadLine()?.Trim().ToLowerInvariant();
-                
+
                 if (userResponse != "y" && userResponse != "yes")
                 {
                     Console.WriteLine("Delete cancelled.");

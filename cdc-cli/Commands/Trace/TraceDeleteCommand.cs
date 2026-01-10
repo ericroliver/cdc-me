@@ -86,7 +86,7 @@ public class TraceDeleteCommand : ApiCommandBase
                 Console.WriteLine($"WARNING: You are about to permanently delete trace session '{sessionId}' and all its data.");
                 Console.Write("Are you sure you want to continue? (y/N): ");
                 var userResponse = Console.ReadLine()?.Trim().ToLowerInvariant();
-                
+
                 if (userResponse != "y" && userResponse != "yes")
                 {
                     Console.WriteLine("Delete cancelled.");

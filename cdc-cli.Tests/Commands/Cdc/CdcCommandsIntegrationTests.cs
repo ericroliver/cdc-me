@@ -38,9 +38,9 @@ public class CdcCommandsIntegrationTests : IDisposable
         _mockStopLogger = new Mock<ILogger<CdcStopCommand>>();
         _mockCaptureLogger = new Mock<ILogger<CdcCaptureCommand>>();
         _mockJsonLogger = new Mock<ILogger<JsonHandler>>();
-        
-        _configuration = new CliConfiguration 
-        { 
+
+        _configuration = new CliConfiguration
+        {
             BaseUrl = "http://localhost:5000",
             OutputFormat = OutputFormat.Json
         };
@@ -309,7 +309,7 @@ public class CdcCommandsIntegrationTests : IDisposable
             PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
         };
         var jsonResponse = System.Text.Json.JsonSerializer.Serialize(response, options);
-        
+
         _mockHttpHandler.Protected()
             .Setup<Task<HttpResponseMessage>>(
                 "SendAsync",
@@ -334,7 +334,7 @@ public class CdcCommandsIntegrationTests : IDisposable
         _mockHttpHandler.Protected()
             .Setup<Task<HttpResponseMessage>>(
                 "SendAsync",
-                ItExpr.Is<HttpRequestMessage>(req => 
+                ItExpr.Is<HttpRequestMessage>(req =>
                     req.RequestUri != null && req.RequestUri.PathAndQuery.Contains(endpoint)),
                 ItExpr.IsAny<CancellationToken>())
             .ReturnsAsync(new HttpResponseMessage

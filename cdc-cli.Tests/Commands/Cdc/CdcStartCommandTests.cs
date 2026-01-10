@@ -33,9 +33,9 @@ public class CdcStartCommandTests : IDisposable
         _mockApiLogger = new Mock<ILogger<CdcApiClient>>();
         _mockLogger = new Mock<ILogger<CdcStartCommand>>();
         _mockJsonLogger = new Mock<ILogger<JsonHandler>>();
-        
-        _configuration = new CliConfiguration 
-        { 
+
+        _configuration = new CliConfiguration
+        {
             BaseUrl = "http://localhost:5000",
             OutputFormat = OutputFormat.Json
         };
@@ -210,7 +210,7 @@ public class CdcStartCommandTests : IDisposable
             PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
         };
         var jsonResponse = System.Text.Json.JsonSerializer.Serialize(response, options);
-        
+
         _mockHttpHandler.Protected()
             .Setup<Task<HttpResponseMessage>>(
                 "SendAsync",
