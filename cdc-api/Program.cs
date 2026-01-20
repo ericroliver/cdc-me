@@ -8,32 +8,24 @@ using Softbase.Cdc.Trace;
 var builder = WebApplication.CreateBuilder(args);
 
 // Load .env file if it exists - check multiple locations
+// SECURITY: Only relative paths used to prevent hard-coding specific environments
 var possibleEnvPaths = new[]
 {
     Path.Combine(Directory.GetCurrentDirectory(), ".env"), // Current directory
     Path.Combine(Directory.GetCurrentDirectory(), "..", ".env"), // Parent directory (when running from cdc-api)
     Path.Combine(AppContext.BaseDirectory, ".env"), // Application base directory
-    Path.Combine(AppContext.BaseDirectory, "..", ".env"), // Parent of application base directory
-    "/Users/eo/code/cdc-me/.env" // Absolute path as fallback
+    Path.Combine(AppContext.BaseDirectory, "..", ".env") // Parent of application base directory
 };
 
 var envFileLoaded = false;
 foreach (var envPath in possibleEnvPaths)
 {
-    Console.WriteLine($"Checking for .env file at: {envPath}");
     if (File.Exists(envPath))
     {
         try
         {
             Env.Load(envPath);
-            Console.WriteLine($"✓ Successfully loaded .env file from: {envPath}");
-
-            // Verify the variables were loaded into environment
-            var testDb = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION");
-            var cdcmeDb = Environment.GetEnvironmentVariable("CDCME_DB_CONNECTION");
-            Console.WriteLine($"TEST_DB_CONNECTION loaded: {!string.IsNullOrEmpty(testDb)}");
-            Console.WriteLine($"CDCME_DB_CONNECTION loaded: {!string.IsNullOrEmpty(cdcmeDb)}");
-
+            Console.WriteLine($"✓ Successfully loaded .env file");
             envFileLoaded = true;
             break;
         }

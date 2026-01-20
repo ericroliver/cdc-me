@@ -284,12 +284,13 @@ public class TestWorkflowController : ControllerBase
         }
         catch (Exception ex)
         {
+            // SECURITY: Log detailed error server-side only, return generic message to client
             _logger.LogError(ex, "Error executing workflow {WorkflowId}", workflowId);
 
             result.EndTime = DateTime.UtcNow;
             result.Success = false;
             result.Duration = result.EndTime.Value - result.StartTime;
-            result.ErrorMessage = ex.Message;
+            result.ErrorMessage = "Workflow execution failed. Please check server logs for details.";
 
             return BadRequest(result);
         }
@@ -318,8 +319,9 @@ public class TestWorkflowController : ControllerBase
         }
         catch (Exception ex)
         {
+            // SECURITY: Log detailed error server-side only, return generic message to client
             _logger.LogError(ex, "Error getting workflow status for {WorkflowId}", workflowId);
-            return BadRequest(new { error = $"Error getting workflow status: {ex.Message}" });
+            return BadRequest(new { error = "Failed to retrieve workflow status. Please check server logs for details." });
         }
     }
 

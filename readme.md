@@ -17,14 +17,17 @@
 > - ❌ **NOT EXTERNALLY EXPOSED** - Must run on isolated internal networks only
 > - ⚠️ **SQL INJECTION PROTECTIONS** - While SQL injection vulnerabilities have been mitigated, this tool should still only be used in controlled environments
 >
+> **📖 See [SECURITY.md](SECURITY.md) for complete security guidelines, deployment best practices, and vulnerability reporting.**
+>
 > **Recommended Security Practices:**
 >
 > - Run only on isolated development/test networks
-> - Use strong, unique passwords (see `.env.example` for guidance)
+> - Use strong, unique passwords (see [`.env.example`](.env.example) for guidance)
 > - Never expose the API to the internet
 > - Only connect to disposable test databases
 > - Implement network-level access controls (firewall rules, VPNs)
 > - Consider adding authentication before any broader deployment
+> - **Never use `TrustServerCertificate=true` in production** (see [SECURITY.md](SECURITY.md#database-connections))
 >
 > **Tested so far:**
 >

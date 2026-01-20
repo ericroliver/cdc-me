@@ -102,9 +102,9 @@ public class CdcController : ControllerBase
                 }
                 catch (Exception ex)
                 {
-                    var errorMessage = $"Failed to enable CDC on table {table.Schema}.{table.Name}: {ex.Message}";
-                    _logger.LogError(ex, errorMessage);
-                    errors.Add(errorMessage);
+                    // SECURITY: Log detailed error server-side only
+                    _logger.LogError(ex, "Failed to enable CDC on table {Schema}.{TableName}", table.Schema, table.Name);
+                    errors.Add($"Failed to enable CDC on table {table.Schema}.{table.Name}");
                     tablesSkipped.Add($"{table.Schema}.{table.Name}");
                 }
             }
