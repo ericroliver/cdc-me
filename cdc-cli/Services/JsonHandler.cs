@@ -228,13 +228,18 @@ public class JsonHandler : IJsonHandler
         if (filePath.Contains("..", StringComparison.Ordinal) ||
             filePath.Contains("~", StringComparison.Ordinal))
         {
-            // Verify the normalized path is within current directory or is an absolute path
+            // Verify the normalized path is within current directory
             var currentDir = Directory.GetCurrentDirectory();
-            if (!fullPath.StartsWith(currentDir, StringComparison.OrdinalIgnoreCase) &&
-                !Path.IsPathRooted(filePath))
+            var currentDirWithSeparator = currentDir.EndsWith(Path.DirectorySeparatorChar)
+                ? currentDir
+                : currentDir + Path.DirectorySeparatorChar;
+            var isInCurrentDirectory =
+                fullPath.Equals(currentDir, StringComparison.OrdinalIgnoreCase) ||
+                fullPath.StartsWith(currentDirWithSeparator, StringComparison.OrdinalIgnoreCase);
+            if (!isInCurrentDirectory)
             {
                 throw new ArgumentException(
-                    "Path traversal patterns detected. Use absolute paths or paths relative to current directory.",
+                    "Path traversal patterns detected. Use paths relative to the current directory.",
                     nameof(filePath));
             }
         }

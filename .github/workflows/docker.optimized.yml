@@ -162,7 +162,7 @@ jobs:
 
       - name: Generate SBOM
         if: needs.build-info.outputs.should-push == 'true'
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@v0.15.0
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build-info.outputs.version }}
           format: spdx-json
@@ -178,7 +178,7 @@ jobs:
 
       - name: Run Trivy vulnerability scanner
         if: needs.build-info.outputs.should-push == 'true'
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.16.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build-info.outputs.version }}
           format: "sarif"

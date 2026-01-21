@@ -238,7 +238,7 @@ var fileContent = await File.ReadAllTextAsync(filePath);
 
 **Impact**:
 - Path traversal attacks possible
-- Arbitrary file read if combined with other vulner abilities
+- Arbitrary file read if combined with other vulnerabilities
 - Information disclosure
 
 **Remediation**:

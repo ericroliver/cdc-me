@@ -108,5 +108,5 @@ LABEL org.opencontainers.image.title="CDC Testing Framework API" \
     org.opencontainers.image.description="A .NET Web API for database change validation using SQL Server CDC functionality" \
     org.opencontainers.image.vendor="CDC Testing Framework Team" \
     org.opencontainers.image.licenses="MIT" \
-    org.opencontainers.image.source="https://github.com/your-org/cdc-me" \
-    org.opencontainers.image.documentation="https://github.com/your-org/cdc-me/blob/main/README.md"
+    org.opencontainers.image.source="https://github.com/ericroliver/cdc-me" \
+    org.opencontainers.image.documentation="https://github.com/ericroliver/cdc-me/blob/main/README.md"

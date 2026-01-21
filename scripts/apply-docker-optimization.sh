@@ -1,3 +1,4 @@
+#!/bin/bash
 # 1. Use optimized Dockerfile
 cp Dockerfile Dockerfile.original
 cp Dockerfile.optimized Dockerfile

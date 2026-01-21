@@ -19,7 +19,7 @@ We take the security of the CDC Testing Framework seriously. If you discover a s
 
 Instead, please report security vulnerabilities by:
 
-1. **Email**: Send details to [security contact email - UPDATE THIS]
+1. **Email**: Send details to eric.oliver@widowmakersoftware.com
 2. **Subject Line**: "SECURITY: CDC Testing Framework Vulnerability Report"
 3. **Include**:
    - Description of the vulnerability
