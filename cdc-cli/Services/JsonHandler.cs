@@ -59,7 +59,7 @@ public class JsonHandler : IJsonHandler
             {
                 // SECURITY: Validate file path to prevent path traversal attacks
                 var validatedPath = ValidateFilePath(filePath);
-                
+
                 if (_configuration.Verbose)
                 {
                     _logger.LogDebug("Reading input from file: {FilePath}", validatedPath);

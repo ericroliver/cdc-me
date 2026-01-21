@@ -45,6 +45,7 @@ like a brand new team member, your understanding of this project and environment
 - this repo has warnings as errors turned on.
 - a task is not complete until it builds: dotnet build cdc-me.sln
 - and all tests pass: dotnet test cdc-me.sln
+- and it passes code formatting: dotnet format cdc-me.sln
 - and it passes a lint check with ./scripts/lint-check.sh
 
 # Developer Warnings Prevention Guide
@@ -119,6 +120,8 @@ This document provides specific guidance to help developers avoid the most commo
 
 ### Quick Checklist Before Committing
 
+- [ ] **Run code formatter**: `dotnet format cdc-me.sln` to automatically fix formatting issues
+- [ ] **Run lint check**: `./scripts/lint-check.sh` to verify all checks pass before PR
 - [ ] All test method parameters have XML documentation
 - [ ] Test helper methods that return values have `<returns>` documentation
 - [ ] No new JsonSerializerOptions instances created in test methods
