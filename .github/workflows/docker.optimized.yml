@@ -161,23 +161,20 @@ jobs:
           # Note: Changed from mode=max to mode=min to reduce cache export time by 4+ minutes
 
       - name: Generate SBOM
-        if: needs.build-info.outputs.should-push == 'true'
-        uses: anchore/sbom-action@v0.15.0
+        uses: anchore/sbom-action@v0.17.2
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build-info.outputs.version }}
           format: spdx-json
           output-file: sbom.spdx.json
 
       - name: Upload SBOM
-        if: needs.build-info.outputs.should-push == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: sbom
+          name: sbom-report
           path: sbom.spdx.json
           retention-days: 30
 
       - name: Run Trivy vulnerability scanner
-        if: needs.build-info.outputs.should-push == 'true'
         uses: aquasecurity/trivy-action@0.16.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build-info.outputs.version }}
@@ -185,7 +182,6 @@ jobs:
           output: "trivy-results.sarif"
 
       - name: Upload Trivy scan results
-        if: needs.build-info.outputs.should-push == 'true'
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: "trivy-results.sarif"

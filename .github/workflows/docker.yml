@@ -140,23 +140,21 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@v0.17.2
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build-info.outputs.version }}
           format: spdx-json
           output-file: sbom.spdx.json
-          # Use a specific working Syft version instead of the outdated default
-          syft-version: latest
 
       - name: Upload SBOM
         uses: actions/upload-artifact@v4
         with:
-          name: sbom-${{ needs.build-info.outputs.version }}
+          name: sbom-report
           path: sbom.spdx.json
           retention-days: 30
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.16.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build-info.outputs.version }}
           format: "sarif"
