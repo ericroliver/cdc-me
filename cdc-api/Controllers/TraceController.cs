@@ -84,11 +84,12 @@ public class TraceController : ControllerBase
         }
         catch (Exception ex)
         {
+            // SECURITY: Log detailed error server-side only, return generic message to client
             _logger.LogError(ex, "Error starting trace session {SessionName}", request.SessionName);
             return BadRequest(new TraceApiResult
             {
                 Success = false,
-                Message = $"Error starting trace: {ex.Message}",
+                Message = "Failed to start trace session. Please check server logs for details.",
                 SessionName = request.SessionName
             });
         }

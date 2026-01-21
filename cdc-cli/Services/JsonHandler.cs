@@ -57,17 +57,20 @@ public class JsonHandler : IJsonHandler
             // Priority 2: File path
             if (!string.IsNullOrWhiteSpace(filePath))
             {
+                // SECURITY: Validate file path to prevent path traversal attacks
+                var validatedPath = ValidateFilePath(filePath);
+
                 if (_configuration.Verbose)
                 {
-                    _logger.LogDebug("Reading input from file: {FilePath}", filePath);
+                    _logger.LogDebug("Reading input from file: {FilePath}", validatedPath);
                 }
 
-                if (!File.Exists(filePath))
+                if (!File.Exists(validatedPath))
                 {
-                    throw new FileNotFoundException($"Input file not found: {filePath}", filePath);
+                    throw new FileNotFoundException($"Input file not found: {validatedPath}", validatedPath);
                 }
 
-                var fileContent = await File.ReadAllTextAsync(filePath);
+                var fileContent = await File.ReadAllTextAsync(validatedPath);
                 return JsonSerializer.Deserialize<T>(fileContent, _compactOptions);
             }
 
@@ -194,6 +197,54 @@ public class JsonHandler : IJsonHandler
             var valueStr = FormatValue(value);
             await Console.Out.WriteLineAsync($"{prop.Name}: {valueStr}");
         }
+    }
+
+    /// <summary>
+    /// Validates a file path to prevent path traversal attacks
+    /// </summary>
+    /// <param name="filePath">File path to validate</param>
+    /// <returns>Validated and normalized file path</returns>
+    /// <exception cref="ArgumentException">Thrown if path is invalid or contains traversal patterns</exception>
+    private static string ValidateFilePath(string filePath)
+    {
+        // SECURITY: Prevent path traversal attacks
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            throw new ArgumentException("File path cannot be empty", nameof(filePath));
+        }
+
+        // Get the full normalized path
+        string fullPath;
+        try
+        {
+            fullPath = Path.GetFullPath(filePath);
+        }
+        catch (Exception ex)
+        {
+            throw new ArgumentException($"Invalid file path: {ex.Message}", nameof(filePath), ex);
+        }
+
+        // Check for path traversal patterns
+        if (filePath.Contains("..", StringComparison.Ordinal) ||
+            filePath.Contains("~", StringComparison.Ordinal))
+        {
+            // Verify the normalized path is within current directory
+            var currentDir = Directory.GetCurrentDirectory();
+            var currentDirWithSeparator = currentDir.EndsWith(Path.DirectorySeparatorChar)
+                ? currentDir
+                : currentDir + Path.DirectorySeparatorChar;
+            var isInCurrentDirectory =
+                fullPath.Equals(currentDir, StringComparison.OrdinalIgnoreCase) ||
+                fullPath.StartsWith(currentDirWithSeparator, StringComparison.OrdinalIgnoreCase);
+            if (!isInCurrentDirectory)
+            {
+                throw new ArgumentException(
+                    "Path traversal patterns detected. Use paths relative to the current directory.",
+                    nameof(filePath));
+            }
+        }
+
+        return fullPath;
     }
 
     /// <summary>

@@ -58,11 +58,13 @@ public class SnapshotController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating snapshot {SnapshotName}", request.SnapshotName);
+            // SECURITY: Log detailed error server-side only, return generic message to client
+            _logger.LogError(ex, "Error creating snapshot {SnapshotName} for database {DatabaseName}",
+                request.SnapshotName, request.DatabaseName);
             return BadRequest(new SnapshotApiResult
             {
                 Success = false,
-                Message = $"Error creating snapshot: {ex.Message}",
+                Message = "Failed to create snapshot. Please check server logs for details.",
                 SnapshotName = request.SnapshotName,
                 DatabaseName = request.DatabaseName
             });
@@ -97,11 +99,13 @@ public class SnapshotController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error restoring snapshot {SnapshotName}", request.SnapshotName);
+            // SECURITY: Log detailed error server-side only, return generic message to client
+            _logger.LogError(ex, "Error restoring snapshot {SnapshotName} to database {DatabaseName}",
+                request.SnapshotName, request.DatabaseName);
             return BadRequest(new SnapshotApiResult
             {
                 Success = false,
-                Message = $"Error restoring snapshot: {ex.Message}",
+                Message = "Failed to restore snapshot. Please check server logs for details.",
                 SnapshotName = request.SnapshotName,
                 DatabaseName = request.DatabaseName
             });
