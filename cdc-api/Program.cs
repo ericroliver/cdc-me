@@ -152,13 +152,18 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader();
     });
 
-    // Production policy - permissive for Docker/API testing
-    // SECURITY: In actual production deployment, restrict this to specific origins
+    // Production policy - secure with specific origins
+    // Configure via environment variable CORS_ALLOWED_ORIGINS (comma-separated)
     options.AddPolicy("Production", policy =>
     {
-        policy.AllowAnyOrigin()
+        var allowedOrigins = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS")
+            ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            ?? new[] { "http://localhost:3000", "http://localhost:8080" };
+
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials();
     });
 });
 
@@ -167,37 +172,56 @@ var app = builder.Build();
 // Log the exact URLs Kestrel is binding to for diagnostics
 var urls = app.Urls;
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
-logger.LogInformation("=== KESTREL BINDING DIAGNOSTICS ===");
-logger.LogInformation("Environment: {Environment}", app.Environment.EnvironmentName);
-logger.LogInformation("ASPNETCORE_URLS from env: {Urls}", Environment.GetEnvironmentVariable("ASPNETCORE_URLS"));
+logger.LogDebug("Kestrel binding diagnostics");
+logger.LogDebug("Environment: {Environment}", app.Environment.EnvironmentName);
+logger.LogDebug("ASPNETCORE_URLS from env: {Urls}", Environment.GetEnvironmentVariable("ASPNETCORE_URLS"));
 foreach (var url in urls)
 {
-    logger.LogInformation("Kestrel listening on: {Url}", url);
+    logger.LogDebug("Kestrel listening on: {Url}", url);
 }
 
-// Add request logging middleware to diagnose connection issues
-app.Use(async (context, next) =>
+// Add request logging middleware for Development environment only
+if (app.Environment.IsDevelopment())
 {
-    var requestLogger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-    requestLogger.LogDebug("=== INCOMING REQUEST ===");
-    requestLogger.LogDebug("Method: {Method}, Path: {Path}, RemoteIP: {RemoteIP}",
-        context.Request.Method,
-        context.Request.Path,
-        context.Connection.RemoteIpAddress);
-    requestLogger.LogDebug("Headers: {Headers}",
-        string.Join(", ", context.Request.Headers.Select(h => $"{h.Key}={h.Value}")));
+    app.Use(async (context, next) =>
+    {
+        var requestLogger = context.RequestServices.GetRequiredService<ILogger<Program>>();
 
-    try
-    {
-        await next();
-        requestLogger.LogDebug("Response Status: {StatusCode}", context.Response.StatusCode);
-    }
-    catch (Exception ex)
-    {
-        requestLogger.LogError(ex, "Exception during request processing");
-        throw;
-    }
-});
+        // Filter sensitive headers before logging
+        var sensitiveHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Authorization",
+            "Cookie",
+            "Set-Cookie",
+            "X-API-Key",
+            "X-Api-Key",
+            "X-Auth-Token"
+        };
+
+        var safeHeaderStrings = context.Request.Headers.Select(h =>
+            sensitiveHeaders.Contains(h.Key)
+                ? $"{h.Key}=<redacted>"
+                : $"{h.Key}={h.Value}");
+
+        requestLogger.LogDebug("Incoming request diagnostics");
+        requestLogger.LogDebug("Method: {Method}, Path: {Path}, RemoteIP: {RemoteIP}",
+            context.Request.Method,
+            context.Request.Path,
+            context.Connection.RemoteIpAddress);
+        requestLogger.LogDebug("Headers: {Headers}", string.Join(", ", safeHeaderStrings));
+
+        try
+        {
+            await next();
+            requestLogger.LogDebug("Response Status: {StatusCode}", context.Response.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            requestLogger.LogError(ex, "Exception during request processing");
+            throw;
+        }
+    });
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -229,8 +253,11 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapHealthChecks("/health");
 
-// Add a simple test endpoint to verify routing
-app.MapGet("/test", () => Results.Ok(new { message = "Test endpoint works", timestamp = DateTime.UtcNow }));
+// Test endpoint for development/diagnostics only
+if (app.Environment.IsDevelopment())
+{
+    app.MapGet("/test", () => Results.Ok(new { message = "Test endpoint works", timestamp = DateTime.UtcNow }));
+}
 
 app.Run();
 
