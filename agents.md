@@ -130,6 +130,54 @@ This document provides specific guidance to help developers avoid the most commo
 - [ ] Async methods only used when actually awaiting operations
 - [ ] Constant arrays extracted to static readonly fields if used multiple times
 
+## CI/CD Pipeline Considerations
+
+### Docker Registry Authentication in GitHub Actions
+
+**Critical**: All operations that interact with container images from private registries (including SBOM generation, vulnerability scanning, and image pulling) MUST occur after registry authentication is established.
+
+#### Common Build Failure: SBOM Generation Without Authentication
+
+**Symptom**: Pipeline passes locally but fails in GitHub Actions with error:
+```
+could not determine source: errors occurred attempting to resolve 'ghcr.io/ericroliver/cdc-me:x.x.x': ... UNAUTHORIZED: authentication required
+```
+
+**Root Cause**: The [`anchore/sbom-action`](../.github/workflows/docker.optimized.yml) or similar image scanning tools attempt to pull/analyze Docker images from GitHub Container Registry (ghcr.io) without proper authentication.
+
+**Solution**: Ensure the Docker registry login step runs **unconditionally before** any image operations that require authentication:
+
+```yaml
+# ✅ CORRECT: Login happens before SBOM generation
+- name: Log in to Container Registry
+  uses: docker/login-action@v3
+  with:
+    registry: ${{ env.REGISTRY }}
+    username: ${{ github.actor }}
+    password: ${{ secrets.GITHUB_TOKEN }}
+
+- name: Generate SBOM
+  uses: anchore/sbom-action@v0
+  with:
+    image: ghcr.io/ericroliver/cdc-me:${{ steps.meta.outputs.version }}
+```
+
+**Key Points**:
+- Docker login must NOT be conditional on `should-push` or similar flags if any subsequent steps need to access private images
+- SBOM generation, vulnerability scanning, and image analysis all require authenticated access to private registries
+- Even if you're not pushing an image, you may still need authentication to pull/scan it
+- The `GITHUB_TOKEN` provides automatic authentication for ghcr.io in GitHub Actions
+
+#### Pre-Commit Checklist for Workflow Changes
+
+When modifying [`.github/workflows/docker.optimized.yml`](../.github/workflows/docker.optimized.yml) or other CI/CD workflows:
+
+- [ ] Verify registry login occurs before any image pull/scan/analyze operations
+- [ ] Check that authentication is not conditionally skipped when image operations are present
+- [ ] Confirm `GITHUB_TOKEN` or appropriate credentials are provided to registry login
+- [ ] Test that SBOM generation, vulnerability scanning, and similar steps have registry access
+- [ ] Ensure multi-architecture builds authenticate before all platform-specific operations
+
 ## Project Overview
 
 The CDC Testing Framework is a research project designed to create a repeatable testing environment for database change validation using SQL Server's Change Data Capture (CDC) functionality. The framework enables teams to capture, replay, and compare database changes to ensure data consistency across different implementations and performance optimizations.

@@ -124,7 +124,6 @@ jobs:
           platforms: linux/amd64
 
       - name: Log in to Container Registry
-        if: needs.build-info.outputs.should-push == 'true'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -299,6 +298,13 @@ jobs:
     if: needs.build-info.outputs.should-push == 'true'
 
     steps:
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Run Snyk to check Docker image for vulnerabilities
         uses: snyk/actions/docker@master
         env:
