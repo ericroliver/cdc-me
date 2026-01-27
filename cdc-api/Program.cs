@@ -52,6 +52,7 @@ if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")))
 
 // Add services to the container.
 
+builder.Services.AddHealthChecks();
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -151,22 +152,52 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader();
     });
 
-    // Production policy - restricted to specific origins
-    // SECURITY: Update these origins to match your actual deployment URLs
+    // Production policy - permissive for Docker/API testing
+    // SECURITY: In actual production deployment, restrict this to specific origins
     options.AddPolicy("Production", policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:3000",  // Example: React dev server
-                "http://localhost:8080",  // Example: API itself
-                "https://your-production-domain.com"  // CHANGE THIS to your actual domain
-              )
+        policy.AllowAnyOrigin()
               .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
+              .AllowAnyHeader();
     });
 });
 
 var app = builder.Build();
+
+// Log the exact URLs Kestrel is binding to for diagnostics
+var urls = app.Urls;
+var logger = app.Services.GetRequiredService<ILogger<Program>>();
+logger.LogInformation("=== KESTREL BINDING DIAGNOSTICS ===");
+logger.LogInformation("Environment: {Environment}", app.Environment.EnvironmentName);
+logger.LogInformation("ASPNETCORE_URLS from env: {Urls}", Environment.GetEnvironmentVariable("ASPNETCORE_URLS"));
+foreach (var url in urls)
+{
+    logger.LogInformation("Kestrel listening on: {Url}", url);
+}
+
+// Add request logging middleware to diagnose connection issues
+app.Use(async (context, next) =>
+{
+    var requestLogger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+    requestLogger.LogInformation("=== INCOMING REQUEST ===");
+    requestLogger.LogInformation("Method: {Method}, Path: {Path}, RemoteIP: {RemoteIP}",
+        context.Request.Method,
+        context.Request.Path,
+        context.Connection.RemoteIpAddress);
+    requestLogger.LogInformation("Headers: {Headers}",
+        string.Join(", ", context.Request.Headers.Select(h => $"{h.Key}={h.Value}")));
+
+    try
+    {
+        await next();
+        requestLogger.LogInformation("Response Status: {StatusCode}", context.Response.StatusCode);
+    }
+    catch (Exception ex)
+    {
+        requestLogger.LogError(ex, "Exception during request processing");
+        throw;
+    }
+});
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -178,21 +209,30 @@ if (app.Environment.IsDevelopment())
         c.RoutePrefix = string.Empty; // Serve Swagger UI at root
     });
     app.UseCors("Development");
+    
+    // Only use HTTPS redirection in Development when both HTTP and HTTPS are configured
+    var aspnetcoreUrls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? string.Empty;
+    if (aspnetcoreUrls.Contains("https", StringComparison.OrdinalIgnoreCase))
+    {
+        app.UseHttpsRedirection();
+    }
 }
 else
 {
     // Production environment
     app.UseCors("Production");
+    // Don't use HTTPS redirection in Production/Docker - typically handled by reverse proxy/load balancer
 }
-
-app.UseHttpsRedirection();
 
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHealthChecks("/health");
+
+// Add a simple test endpoint to verify routing
+app.MapGet("/test", () => Results.Ok(new { message = "Test endpoint works", timestamp = DateTime.UtcNow }));
 
 app.Run();
 
 // Make Program class accessible to test projects
 public partial class Program { }
-
