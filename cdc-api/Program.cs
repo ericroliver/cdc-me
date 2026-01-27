@@ -179,18 +179,18 @@ foreach (var url in urls)
 app.Use(async (context, next) =>
 {
     var requestLogger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-    requestLogger.LogInformation("=== INCOMING REQUEST ===");
-    requestLogger.LogInformation("Method: {Method}, Path: {Path}, RemoteIP: {RemoteIP}",
+    requestLogger.LogDebug("=== INCOMING REQUEST ===");
+    requestLogger.LogDebug("Method: {Method}, Path: {Path}, RemoteIP: {RemoteIP}",
         context.Request.Method,
         context.Request.Path,
         context.Connection.RemoteIpAddress);
-    requestLogger.LogInformation("Headers: {Headers}",
+    requestLogger.LogDebug("Headers: {Headers}",
         string.Join(", ", context.Request.Headers.Select(h => $"{h.Key}={h.Value}")));
 
     try
     {
         await next();
-        requestLogger.LogInformation("Response Status: {StatusCode}", context.Response.StatusCode);
+        requestLogger.LogDebug("Response Status: {StatusCode}", context.Response.StatusCode);
     }
     catch (Exception ex)
     {
@@ -209,7 +209,7 @@ if (app.Environment.IsDevelopment())
         c.RoutePrefix = string.Empty; // Serve Swagger UI at root
     });
     app.UseCors("Development");
-    
+
     // Only use HTTPS redirection in Development when both HTTP and HTTPS are configured
     var aspnetcoreUrls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? string.Empty;
     if (aspnetcoreUrls.Contains("https", StringComparison.OrdinalIgnoreCase))
