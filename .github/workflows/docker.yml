@@ -32,6 +32,8 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       should-push: ${{ steps.push-decision.outputs.should-push }}
+      is-pr: ${{ steps.build-type.outputs.is-pr }}
+      platforms: ${{ steps.build-type.outputs.platforms }}
 
     steps:
       - name: Checkout code
@@ -83,6 +85,23 @@ jobs:
           echo "should-push=$SHOULD_PUSH" >> $GITHUB_OUTPUT
           echo "Should push: $SHOULD_PUSH"
 
+      - name: Determine build type and platforms
+        id: build-type
+        run: |
+          IS_PR=false
+          PLATFORMS="linux/amd64,linux/arm64"
+          
+          # Check if this is a PR build
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            IS_PR=true
+            PLATFORMS="linux/amd64"
+          fi
+          
+          echo "is-pr=$IS_PR" >> $GITHUB_OUTPUT
+          echo "platforms=$PLATFORMS" >> $GITHUB_OUTPUT
+          echo "Is PR: $IS_PR"
+          echo "Platforms: $PLATFORMS"
+
   # Docker Build and Push
   docker:
     name: Build and Push Docker Image
@@ -101,8 +120,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          platforms: linux/amd64,linux/arm64
 
       - name: Log in to Container Registry
         if: needs.build-info.outputs.should-push == 'true'
@@ -130,16 +147,17 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ needs.build-info.outputs.platforms }}
           push: ${{ needs.build-info.outputs.should-push }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VERSION=${{ needs.build-info.outputs.version }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=min
 
       - name: Generate SBOM
+        if: needs.build-info.outputs.should-push == 'true'
         uses: anchore/sbom-action@v0.17.2
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build-info.outputs.version }}
@@ -147,6 +165,7 @@ jobs:
           output-file: sbom.spdx.json
 
       - name: Upload SBOM
+        if: needs.build-info.outputs.should-push == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: sbom-report
@@ -154,6 +173,7 @@ jobs:
           retention-days: 30
 
       - name: Run Trivy vulnerability scanner
+        if: needs.build-info.outputs.should-push == 'true'
         uses: aquasecurity/trivy-action@0.16.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build-info.outputs.version }}
@@ -161,13 +181,13 @@ jobs:
           output: "trivy-results.sarif"
 
       - name: Upload Trivy scan results
+        if: needs.build-info.outputs.should-push == 'true'
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: "trivy-results.sarif"
           category: "trivy-container-scan"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
+
 
   # Test Docker Image
   test-docker:

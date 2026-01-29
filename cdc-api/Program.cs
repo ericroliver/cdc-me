@@ -52,6 +52,7 @@ if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")))
 
 // Add services to the container.
 
+builder.Services.AddHealthChecks();
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -151,15 +152,15 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader();
     });
 
-    // Production policy - restricted to specific origins
-    // SECURITY: Update these origins to match your actual deployment URLs
+    // Production policy - secure with specific origins
+    // Configure via environment variable CORS_ALLOWED_ORIGINS (comma-separated)
     options.AddPolicy("Production", policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:3000",  // Example: React dev server
-                "http://localhost:8080",  // Example: API itself
-                "https://your-production-domain.com"  // CHANGE THIS to your actual domain
-              )
+        var allowedOrigins = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS")
+            ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            ?? new[] { "http://localhost:3000", "http://localhost:8080" };
+
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
@@ -167,6 +168,60 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Log the exact URLs Kestrel is binding to for diagnostics
+var urls = app.Urls;
+var logger = app.Services.GetRequiredService<ILogger<Program>>();
+logger.LogDebug("Kestrel binding diagnostics");
+logger.LogDebug("Environment: {Environment}", app.Environment.EnvironmentName);
+logger.LogDebug("ASPNETCORE_URLS from env: {Urls}", Environment.GetEnvironmentVariable("ASPNETCORE_URLS"));
+foreach (var url in urls)
+{
+    logger.LogDebug("Kestrel listening on: {Url}", url);
+}
+
+// Add request logging middleware for Development environment only
+if (app.Environment.IsDevelopment())
+{
+    app.Use(async (context, next) =>
+    {
+        var requestLogger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+
+        // Filter sensitive headers before logging
+        var sensitiveHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Authorization",
+            "Cookie",
+            "Set-Cookie",
+            "X-API-Key",
+            "X-Api-Key",
+            "X-Auth-Token"
+        };
+
+        var safeHeaderStrings = context.Request.Headers.Select(h =>
+            sensitiveHeaders.Contains(h.Key)
+                ? $"{h.Key}=<redacted>"
+                : $"{h.Key}={h.Value}");
+
+        requestLogger.LogDebug("Incoming request diagnostics");
+        requestLogger.LogDebug("Method: {Method}, Path: {Path}, RemoteIP: {RemoteIP}",
+            context.Request.Method,
+            context.Request.Path,
+            context.Connection.RemoteIpAddress);
+        requestLogger.LogDebug("Headers: {Headers}", string.Join(", ", safeHeaderStrings));
+
+        try
+        {
+            await next();
+            requestLogger.LogDebug("Response Status: {StatusCode}", context.Response.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            requestLogger.LogError(ex, "Exception during request processing");
+            throw;
+        }
+    });
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -178,21 +233,33 @@ if (app.Environment.IsDevelopment())
         c.RoutePrefix = string.Empty; // Serve Swagger UI at root
     });
     app.UseCors("Development");
+
+    // Only use HTTPS redirection in Development when both HTTP and HTTPS are configured
+    var aspnetcoreUrls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? string.Empty;
+    if (aspnetcoreUrls.Contains("https", StringComparison.OrdinalIgnoreCase))
+    {
+        app.UseHttpsRedirection();
+    }
 }
 else
 {
     // Production environment
     app.UseCors("Production");
+    // Don't use HTTPS redirection in Production/Docker - typically handled by reverse proxy/load balancer
 }
-
-app.UseHttpsRedirection();
 
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHealthChecks("/health");
+
+// Test endpoint for development/diagnostics only
+if (app.Environment.IsDevelopment())
+{
+    app.MapGet("/test", () => Results.Ok(new { message = "Test endpoint works", timestamp = DateTime.UtcNow }));
+}
 
 app.Run();
 
 // Make Program class accessible to test projects
 public partial class Program { }
-
