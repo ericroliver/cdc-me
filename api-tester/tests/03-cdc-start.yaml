@@ -1,0 +1,23 @@
+# Start CDC Test
+name: Start CDC Session
+description: Start a CDC session for testing
+
+request:
+  method: POST
+  url: /api/cdc/start
+  headers:
+    Content-Type: application/json
+  body:
+    sessionName: "${SESSION_NAME:-api-test-session}"
+    tablesToInclude: []
+    tablesToExclude: []
+
+expect:
+  status: [200, 400]
+  body:
+    jsonPath:
+      $.sessionName: "${SESSION_NAME:-api-test-session}"
+
+capture:
+  CDC_SESSION: "$.sessionName"
+  CDC_SUCCESS: "$.success"

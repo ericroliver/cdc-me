@@ -1,0 +1,13 @@
+# Health Check Test
+name: Health Check
+description: Verify the API health endpoint is responding
+
+request:
+  method: GET
+  url: /health
+
+expect:
+  status: 200
+  body:
+    contains:
+      - Healthy

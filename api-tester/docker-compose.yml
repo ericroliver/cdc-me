@@ -1,0 +1,6 @@
+services:
+  api-tester:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: api-tester:latest

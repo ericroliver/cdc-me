@@ -1,0 +1,14 @@
+# List Snapshots Test
+name: List Snapshots  
+description: List all snapshots for a database (requires valid DB config)
+skip: true  # Skip until database is configured
+
+request:
+  method: GET
+  url: /api/snapshot/${DB_NAME:-testdb}/snapshots
+
+expect:
+  status: 200
+  body:
+    schema:
+      type: array

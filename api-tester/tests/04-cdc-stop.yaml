@@ -1,0 +1,19 @@
+# Stop CDC Test
+name: Stop CDC Session
+description: Stop CDC and capture data
+
+request:
+  method: POST
+  url: /api/cdc/stop
+  headers:
+    Content-Type: application/json
+  body:
+    sessionName: "${CDC_SESSION:-api-test-session}"
+    captureName: "test-capture-001"
+    captureType: "baseline"
+
+expect:
+  status: [200, 400]
+  body:
+    jsonPath:
+      $.sessionName: "${CDC_SESSION:-api-test-session}"
