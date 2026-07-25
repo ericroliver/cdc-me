@@ -49,7 +49,7 @@ Or build and run the executable directly:
 dotnet build cdc-cli/cdc-cli.csproj -c Release
 
 # Run the executable
-./cdc-cli/bin/Release/net9.0/cdc-cli --help
+./cdc-cli/bin/Release/net10.0/cdc-cli --help
 ```
 
 ## Configuration
@@ -247,13 +247,13 @@ dotnet test --filter "FullyQualifiedName~MySpecificTest"
 
 ### Runtime Dependencies
 
-- .NET 9.0
+- .NET 10.0
 - System.CommandLine (>= 2.0.0-beta4) - Command-line parsing
-- Microsoft.Extensions.Http (>= 9.0.0) - HTTP client factory
-- Microsoft.Extensions.Logging (>= 9.0.0) - Logging infrastructure
-- Microsoft.Extensions.Configuration (>= 9.0.0) - Configuration management
-- Microsoft.Extensions.DependencyInjection (>= 9.0.0) - DI container
-- System.Text.Json (>= 9.0.0) - JSON serialization
+- Microsoft.Extensions.Http (>= 10.0.0) - HTTP client factory
+- Microsoft.Extensions.Logging (>= 10.0.0) - Logging infrastructure
+- Microsoft.Extensions.Configuration (>= 10.0.0) - Configuration management
+- Microsoft.Extensions.DependencyInjection (>= 10.0.0) - DI container
+- System.Text.Json - JSON serialization (included in .NET 10 shared framework)
 
 ### Development Dependencies
 

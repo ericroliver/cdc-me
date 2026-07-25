@@ -10,7 +10,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        DOTNET_VERSION: "9.0"
+        DOTNET_VERSION: "10.0"
         VERSION: "${VERSION:-1.0.0}"
     image: cdc-api:${VERSION:-latest}
     container_name: cdc-api

@@ -10,7 +10,7 @@
 # Expected time savings: 2-4 minutes per build
 # For maximum savings (7-8 min), build for single architecture in CI/CD
 
-ARG DOTNET_VERSION=9.0
+ARG DOTNET_VERSION=10.0
 
 # Build stage
 FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_VERSION} AS build

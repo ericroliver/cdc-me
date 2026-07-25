@@ -394,13 +394,13 @@ env:
 ### 1. Use Distroless Images
 Smaller runtime images for even faster pulls:
 ```dockerfile
-FROM gcr.io/distroless/dotnet/aspnet:9.0
+FROM gcr.io/distroless/dotnet/aspnet:10.0
 ```
 
 ### 2. Pre-built Base Images
 Create a custom base image with common dependencies:
 ```dockerfile
-FROM ghcr.io/your-org/dotnet-cdc-base:9.0
+FROM ghcr.io/your-org/dotnet-cdc-base:10.0
 ```
 
 ### 3. Layer Caching Service

@@ -69,7 +69,7 @@ The script distinguishes between critical errors and warnings:
 
 ### Package Version Warnings
 
-If you see warnings like "System.Text.Json 9.0.5 doesn't support net6.0":
+If you see warnings like "System.Text.Json 10.0.0 doesn't support net6.0":
 
 - These are non-critical and won't block the build
 - Consider upgrading to .NET 8.0+ for better compatibility

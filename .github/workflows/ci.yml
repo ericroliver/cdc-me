@@ -14,7 +14,7 @@ on:
         type: boolean
 
 env:
-  DOTNET_VERSION: "9.0.x"
+  DOTNET_VERSION: "10.0.x"
   SOLUTION_FILE: "cdc-me.sln"
   API_PROJECT_PATH: "cdc-api/cdc-api.csproj"
   CLI_PROJECT_PATH: "cdc-proto/cdc-utility.csproj"

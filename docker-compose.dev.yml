@@ -11,7 +11,7 @@ services:
       dockerfile: Dockerfile
       target: build  # Use build stage for hot reload
       args:
-        DOTNET_VERSION: "9.0"
+        DOTNET_VERSION: "10.0"
     image: cdc-api:dev
     container_name: cdc-api-dev
     ports:
