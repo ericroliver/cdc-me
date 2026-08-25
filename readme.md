@@ -43,7 +43,7 @@ A comprehensive .NET solution for database change validation using SQL Server's 
 
 ### Prerequisites
 
-- .NET 9.0 SDK or later
+- .NET 10.0 SDK or later
 - Docker (for running SQL Server)
 - Git
 
@@ -150,7 +150,7 @@ graph TB
 
 **Option 2: Local Development**
 
-- **.NET 9.0** or later
+- **.NET 10.0** or later
 - **SQL Server 2016+** (Standard/Enterprise/Developer Edition)
 - **SQL Server Agent** (must be running)
 - **PostgreSQL 16+** (for trace database)

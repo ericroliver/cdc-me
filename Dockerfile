@@ -1,7 +1,7 @@
 # Multi-stage Dockerfile for CDC Testing Framework API
 # Supports multi-architecture builds (linux/amd64, linux/arm64)
 
-ARG DOTNET_VERSION=9.0
+ARG DOTNET_VERSION=10.0
 
 # Build stage
 FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_VERSION} AS build

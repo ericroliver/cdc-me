@@ -15,7 +15,7 @@ The project now includes multiple layers of protection to ensure code quality:
 
 ### 1. Install Required Tools
 
-Ensure you have .NET SDK 9.0 or later installed:
+Ensure you have .NET SDK 10.0 or later installed:
 
 ```bash
 dotnet --version
@@ -205,7 +205,7 @@ dotnet format cdc-me.sln
 
 This should no longer happen! The local checks now match CI exactly. If you still see differences:
 
-1. Ensure you're using .NET 9.0+
+1. Ensure you're using .NET 10.0+
 2. Run `dotnet restore` to update tools
 3. Check that [`.editorconfig`](.editorconfig:1) hasn't been modified
 

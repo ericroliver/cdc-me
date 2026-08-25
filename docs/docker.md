@@ -163,7 +163,7 @@ Enhanced for development with:
 docker build -t cdc-api:latest .
 
 # Build with specific .NET version
-docker build --build-arg DOTNET_VERSION=9.0 -t cdc-api:latest .
+docker build --build-arg DOTNET_VERSION=10.0 -t cdc-api:latest .
 
 # Build with version tag
 docker build --build-arg VERSION=1.2.3 -t cdc-api:1.2.3 .
@@ -191,7 +191,7 @@ VERSION=1.2.3 docker-compose build
 
 | Argument | Default | Description |
 |----------|---------|-------------|
-| `DOTNET_VERSION` | `9.0` | .NET SDK/Runtime version |
+| `DOTNET_VERSION` | `10.0` | .NET SDK/Runtime version |
 | `VERSION` | `1.0.0` | Application version |
 | `TARGETARCH` | Auto | Target architecture (amd64/arm64) |
 
