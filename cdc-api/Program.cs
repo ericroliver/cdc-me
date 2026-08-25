@@ -60,6 +60,9 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new() { Title = "CDC Testing API", Version = "v1" });
     c.EnableAnnotations();
+    // Use fully qualified type names to avoid schema ID collisions
+    // between types with the same class name in different namespaces
+    c.CustomSchemaIds(type => type.FullName);
 });
 
 // Register Database Connection Factory
