@@ -30,7 +30,7 @@ public class FactorySchemaRunnerTests
     [Theory]
     [InlineData("cdc_lib.Factory.Migrations.Factory.001_create_connections_table.sql", true)]
     [InlineData("cdc_lib.Factory.Migrations.Factory.002_create_templates_table.sql", true)]
-    [InlineData("cdc_lib.Factory.Migrations.Factory.099_create_provisioned_databases_table.sql", true)]
+    [InlineData("cdc_lib.Factory.Migrations.Factory.009_create_provisioned_databases_table.sql", true)]
     [InlineData("cdc_lib.Other.Migrations.Foo.001_bar.sql", false)]
     [InlineData("cdc_lib.Factory.Migrations.Factory.001_create_connections_table.txt", false)]
     [InlineData("SomeOtherAssembly.Factory.Migrations.Factory.001.sql", false)]
@@ -61,11 +61,29 @@ public class FactorySchemaRunnerTests
             .Where(FactorySchemaRunner.ScriptFilter)
             .ToList();
 
-        // --- Assert: at least the 001 migration is present ---
-        migrationResources.Should().NotBeEmpty();
-        migrationResources.Should().Contain(r => r.Contains("001_create_connections_table"));
+        // --- Assert: all 9 migration scripts are present ---
+        migrationResources.Should().HaveCount(9);
 
-        // Read and verify the SQL content contains the expected DDL
+        var expectedMigrations = new[]
+        {
+            "001_create_connections_table",
+            "002_create_templates_table",
+            "003_create_script_groups_table",
+            "004_create_script_group_dependencies_table",
+            "005_create_scripts_table",
+            "006_create_orders_table",
+            "007_create_order_script_groups_table",
+            "008_create_order_parameters_table",
+            "009_create_provisioned_databases_table",
+        };
+
+        foreach (var expected in expectedMigrations)
+        {
+            migrationResources.Should().Contain(r => r.Contains(expected),
+                $"migration '{expected}' should be embedded as a resource");
+        }
+
+        // Verify the first migration SQL content contains the expected DDL
         var resourceName = migrationResources.First(r => r.Contains("001_create_connections_table"));
         using var stream = cdcLibAssembly.GetManifestResourceStream(resourceName);
         stream.Should().NotBeNull();
