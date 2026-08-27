@@ -26,9 +26,22 @@
     <Folder Include="Utilities\" />
   </ItemGroup>
   <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>cdc-api.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.2" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.10" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
+    <PackageReference Include="dbup-core" Version="6.1.1" />
+    <PackageReference Include="dbup-postgresql" Version="7.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Factory schema migration SQL scripts — embedded as resources for DbUp -->
+    <EmbeddedResource Include="Factory\Migrations\Factory\*.sql" />
   </ItemGroup>
 </Project>

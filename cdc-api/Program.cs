@@ -2,6 +2,7 @@ using cdc_api.Data;
 using DotNetEnv;
 using Softbase;
 using Softbase.Cdc.Data;
+using Softbase.Cdc.Factory;
 using Softbase.Cdc.Models;
 using Softbase.Cdc.Trace;
 
@@ -74,6 +75,15 @@ builder.Services.AddScoped<SimpleDac>(serviceProvider =>
     var factory = serviceProvider.GetRequiredService<IDatabaseConnectionFactory>();
     var logger = serviceProvider.GetRequiredService<ILogger<SimpleDac>>();
     return factory.CreateDac(DatabaseRole.TestDatabase, logger);
+});
+
+// Register Factory Schema Runner (DbUp migrations for Factory metadata tables)
+builder.Services.AddSingleton<IFactorySchemaRunner>(serviceProvider =>
+{
+    var factory = serviceProvider.GetRequiredService<IDatabaseConnectionFactory>();
+    var connectionString = factory.GetConnectionString(DatabaseRole.CdcMeDatabase);
+    var logger = serviceProvider.GetRequiredService<ILogger<FactorySchemaRunner>>();
+    return new FactorySchemaRunner(connectionString, logger);
 });
 
 // Register TraceStorageConfiguration for CDCME_DB
@@ -171,6 +181,25 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Run Factory schema migrations on startup
+var schemaLogger = app.Services.GetRequiredService<ILogger<Program>>();
+try
+{
+    var schemaRunner = app.Services.GetRequiredService<IFactorySchemaRunner>();
+    if (schemaRunner.RunMigrations())
+    {
+        schemaLogger.LogInformation("Factory schema migrations completed successfully");
+    }
+    else
+    {
+        schemaLogger.LogWarning("Factory schema migrations did not complete successfully. Factory features may be unavailable.");
+    }
+}
+catch (Exception ex)
+{
+    schemaLogger.LogWarning(ex, "Factory schema migrations could not be run. Factory features may be unavailable.");
+}
 
 // Log the exact URLs Kestrel is binding to for diagnostics
 var urls = app.Urls;
