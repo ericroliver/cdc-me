@@ -3,6 +3,11 @@ using DotNetEnv;
 using Softbase;
 using Softbase.Cdc.Data;
 using Softbase.Cdc.Factory;
+using Softbase.Cdc.Factory.Engine;
+using Softbase.Cdc.Factory.Executors;
+using Softbase.Cdc.Factory.Interfaces;
+using Softbase.Cdc.Factory.Providers;
+using Softbase.Cdc.Factory.Repositories;
 using Softbase.Cdc.Models;
 using Softbase.Cdc.Trace;
 
@@ -85,6 +90,83 @@ builder.Services.AddSingleton<IFactorySchemaRunner>(serviceProvider =>
     var logger = serviceProvider.GetRequiredService<ILogger<FactorySchemaRunner>>();
     return new FactorySchemaRunner(connectionString, logger);
 });
+
+// Register Factory Services
+
+// Templates volume path — configurable via env var or appsettings
+var templatesPath = Environment.GetEnvironmentVariable("FACTORY_TEMPLATES_PATH")
+    ?? builder.Configuration["Factory:TemplatesPath"]
+    ?? Path.Combine(AppContext.BaseDirectory, "templates");
+
+// Ensure templates directory exists
+if (!Directory.Exists(templatesPath))
+{
+    Directory.CreateDirectory(templatesPath);
+}
+
+// Register Factory services
+builder.Services.AddScoped<ITemplateStorageProvider>(serviceProvider =>
+{
+    var logger = serviceProvider.GetRequiredService<ILogger<LocalFileStorageProvider>>();
+    return new LocalFileStorageProvider(templatesPath, logger);
+});
+
+builder.Services.AddScoped<IConnectionRegistry>(serviceProvider =>
+{
+    var factory = serviceProvider.GetRequiredService<IDatabaseConnectionFactory>();
+    var connectionString = factory.GetConnectionString(DatabaseRole.CdcMeDatabase);
+    var logger = serviceProvider.GetRequiredService<ILogger<ConnectionRegistry>>();
+    return new ConnectionRegistry(connectionString, logger);
+});
+
+builder.Services.AddScoped<IDatabaseTemplateRepository>(serviceProvider =>
+{
+    var factory = serviceProvider.GetRequiredService<IDatabaseConnectionFactory>();
+    var connectionString = factory.GetConnectionString(DatabaseRole.CdcMeDatabase);
+    var storage = serviceProvider.GetRequiredService<ITemplateStorageProvider>();
+    var logger = serviceProvider.GetRequiredService<ILogger<DatabaseTemplateRepository>>();
+    return new DatabaseTemplateRepository(connectionString, storage, logger);
+});
+
+builder.Services.AddScoped<IScriptGroupRepository>(serviceProvider =>
+{
+    var factory = serviceProvider.GetRequiredService<IDatabaseConnectionFactory>();
+    var connectionString = factory.GetConnectionString(DatabaseRole.CdcMeDatabase);
+    var logger = serviceProvider.GetRequiredService<ILogger<ScriptGroupRepository>>();
+    return new ScriptGroupRepository(connectionString, logger);
+});
+
+builder.Services.AddScoped<IScriptLibrary>(serviceProvider =>
+{
+    var factory = serviceProvider.GetRequiredService<IDatabaseConnectionFactory>();
+    var connectionString = factory.GetConnectionString(DatabaseRole.CdcMeDatabase);
+    var logger = serviceProvider.GetRequiredService<ILogger<ScriptLibrary>>();
+    return new ScriptLibrary(connectionString, logger);
+});
+
+builder.Services.AddScoped<IDatabaseRegistry>(serviceProvider =>
+{
+    var factory = serviceProvider.GetRequiredService<IDatabaseConnectionFactory>();
+    var connectionString = factory.GetConnectionString(DatabaseRole.CdcMeDatabase);
+    var logger = serviceProvider.GetRequiredService<ILogger<DatabaseRegistry>>();
+    return new DatabaseRegistry(connectionString, logger);
+});
+
+builder.Services.AddScoped<IDatabaseProvider, SqlServerDatabaseProvider>();
+
+builder.Services.AddScoped<IScriptExecutor, SqlScriptExecutor>();
+
+builder.Services.AddSingleton<ParameterResolver>();
+
+builder.Services.AddScoped<IOrderRepository>(serviceProvider =>
+{
+    var factory = serviceProvider.GetRequiredService<IDatabaseConnectionFactory>();
+    var connectionString = factory.GetConnectionString(DatabaseRole.CdcMeDatabase);
+    var logger = serviceProvider.GetRequiredService<ILogger<OrderRepository>>();
+    return new OrderRepository(connectionString, logger);
+});
+
+builder.Services.AddScoped<IDatabaseFactory, DatabaseFactory>();
 
 // Register TraceStorageConfiguration for CDCME_DB
 builder.Services.AddScoped<TraceStorageConfiguration>(serviceProvider =>
