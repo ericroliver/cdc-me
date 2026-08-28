@@ -54,16 +54,7 @@ public class TestWorkflowController : ControllerBase
             string.IsNullOrWhiteSpace(request.TestSnapshotName) ||
             string.IsNullOrWhiteSpace(request.TraceSessionName))
         {
-            return BadRequest(new WorkflowExecutionResult
-            {
-                WorkflowId = Guid.NewGuid(),
-                WorkflowName = request.WorkflowName ?? string.Empty,
-                StartTime = DateTime.UtcNow,
-                EndTime = DateTime.UtcNow,
-                Success = false,
-                ErrorMessage = "Required fields are missing: WorkflowName, DatabaseName, ConnectionString, TraceConnectionString, BaselineSnapshotName, TestSnapshotName, and TraceSessionName are all required.",
-                Steps = new List<WorkflowStepResult>()
-            });
+            return BadRequest(new { error = "Required fields are missing: WorkflowName, DatabaseName, ConnectionString, TraceConnectionString, BaselineSnapshotName, TestSnapshotName, and TraceSessionName are all required." });
         }
 
         var workflowId = Guid.NewGuid();

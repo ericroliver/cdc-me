@@ -400,7 +400,7 @@ app.MapHealthChecks("/health", new HealthCheckOptions
 // Test endpoint for development/diagnostics only
 if (app.Environment.IsDevelopment())
 {
-    app.MapGet("/test", () => Results.Ok(new { message = "Test endpoint works", timestamp = DateTime.UtcNow }));
+    app.MapGet("/test", () => Results.Ok(new { message = "Test endpoint works", timestamp = DateTime.UtcNow.ToString("o") }));
 }
 
 app.Run();

@@ -116,15 +116,8 @@ public class CdcController : ControllerBase
                               $"Tables may not exist, lack primary keys, or have other issues. Check tablesSkipped and errors for details.";
                 _logger.LogError(errorMsg);
 
-                return BadRequest(new StartCdcResponse
-                {
-                    Success = false,
-                    SessionName = request.SessionName,
-                    Message = errorMsg,
-                    TablesEnabled = tablesEnabled,
-                    TablesSkipped = tablesSkipped,
-                    Errors = errors.Any() ? errors : new List<string> { "No tables matched the filter or all tables were skipped" }
-                });
+                _logger.LogError("No tables could be CDC-enabled for session {SessionName}", request.SessionName);
+                return BadRequest(new { error = "No tables could be CDC-enabled. Tables may not exist, lack primary keys, or have other issues. Check server logs for details." });
             }
 
             // Step 5: Create or update session in trace database (non-blocking - don't fail if this fails)
@@ -153,13 +146,7 @@ public class CdcController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error starting CDC for session {SessionName}", request.SessionName);
-            return BadRequest(new StartCdcResponse
-            {
-                Success = false,
-                SessionName = request.SessionName,
-                Message = $"Error starting CDC: {ex.Message}",
-                Errors = new List<string> { ex.Message }
-            });
+            return BadRequest(new { error = "Failed to start CDC. Please check server logs for details." });
         }
     }
 
@@ -188,15 +175,7 @@ public class CdcController : ControllerBase
             if (!CdcDataUtilities.IsCdcEnabled(testDac))
             {
                 _logger.LogWarning("CDC is not enabled on the database. Cannot capture CDC data.");
-                return Ok(new StopCdcResponse
-                {
-                    Success = false,
-                    SessionName = request.SessionName,
-                    CaptureName = request.CaptureName,
-                    Message = "CDC is not currently running on the database. No data to capture.",
-                    TablesWithChanges = new List<string>(),
-                    TotalRecords = 0
-                });
+                return NotFound(new { error = "CDC is not currently running. No active session found." });
             }
 
             // Perform CDC capture
@@ -213,15 +192,8 @@ public class CdcController : ControllerBase
                 _logger.LogDebug("Disabling CDC on database after capture errors");
                 CdcDataUtilities.DisableCdcOnDatabase(testDac);
 
-                return Ok(new StopCdcResponse
-                {
-                    Success = false,
-                    SessionName = request.SessionName,
-                    CaptureName = request.CaptureName,
-                    Message = $"CDC stopped successfully but data capture failed: {captureResult.ErrorMessage}",
-                    TablesWithChanges = new List<string>(),
-                    TotalRecords = 0
-                });
+                _logger.LogError("CDC capture failed for session {SessionName}: {ErrorMessage}", request.SessionName, captureResult.ErrorMessage);
+                return BadRequest(new { error = "CDC was stopped but data capture failed. Please check server logs for details." });
             }
 
             // Disable CDC on database after successful capture
@@ -247,14 +219,7 @@ public class CdcController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error stopping CDC for session {SessionName}", request.SessionName);
-            return BadRequest(new StopCdcResponse
-            {
-                Success = false,
-                SessionName = request.SessionName,
-                CaptureName = request.CaptureName,
-                Message = $"Error stopping CDC: {ex.Message}",
-                Errors = new List<string> { ex.Message }
-            });
+            return BadRequest(new { error = "Failed to stop CDC. Please check server logs for details." });
         }
     }
 
@@ -285,16 +250,8 @@ public class CdcController : ControllerBase
             // Handle capture failure
             if (!captureResult.IsSuccess)
             {
-                return Ok(new CaptureCdcResponse
-                {
-                    Success = false,
-                    SessionName = request.SessionName,
-                    CaptureName = request.CaptureName,
-                    CaptureType = request.CaptureType,
-                    Message = $"CDC data capture failed: {captureResult.ErrorMessage}",
-                    TablesWithChanges = new List<string>(),
-                    TotalRecords = 0
-                });
+                _logger.LogError("CDC capture failed for session {SessionName}: {ErrorMessage}", request.SessionName, captureResult.ErrorMessage);
+                return BadRequest(new { error = "Failed to capture CDC data. Please check server logs for details." });
             }
 
             var response = new CaptureCdcResponse
@@ -317,15 +274,7 @@ public class CdcController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error capturing CDC for session {SessionName}", request.SessionName);
-            return BadRequest(new CaptureCdcResponse
-            {
-                Success = false,
-                SessionName = request.SessionName,
-                CaptureName = request.CaptureName,
-                CaptureType = request.CaptureType,
-                Message = $"Error capturing CDC: {ex.Message}",
-                Errors = new List<string> { ex.Message }
-            });
+            return BadRequest(new { error = "Failed to capture CDC data. Please check server logs for details." });
         }
     }
 
@@ -759,6 +708,13 @@ public class CdcController : ControllerBase
                 Errors = result.Errors
             };
 
+            // If comparison produced errors (e.g., missing captures), return BadRequest
+            if (result.Errors != null && result.Errors.Any())
+            {
+                _logger.LogWarning("Comparison produced errors: {Errors}", string.Join("; ", result.Errors));
+                return BadRequest(new { error = "Comparison failed. Required captures not found or other errors occurred. Please check server logs for details." });
+            }
+
             if (result.IsMatch)
             {
                 _logger.LogInformation("Comparison successful: captures match exactly. Compared {TablesCompared} tables, {RecordsCompared} records in {Duration}ms",
@@ -775,11 +731,7 @@ public class CdcController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error comparing captures");
-            return BadRequest(new CdcModels.CompareCapturesResponse
-            {
-                IsMatch = false,
-                Errors = new List<string> { $"Comparison failed: {ex.Message}" }
-            });
+            return BadRequest(new { error = "Failed to compare captures. Please check server logs for details." });
         }
     }
 }

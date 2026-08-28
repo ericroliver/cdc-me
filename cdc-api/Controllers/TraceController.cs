@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Npgsql;
 using Softbase.Cdc.Models;
 using Softbase.Cdc.Trace;
 
@@ -34,12 +35,7 @@ public class TraceController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.SessionName) ||
             string.IsNullOrWhiteSpace(request.DatabaseName))
         {
-            return BadRequest(new TraceApiResult
-            {
-                Success = false,
-                Message = "Required fields are missing: SessionName and DatabaseName are required.",
-                SessionName = request.SessionName
-            });
+            return BadRequest(new { error = "Required fields are missing: SessionName and DatabaseName are required." });
         }
 
         try
@@ -74,12 +70,7 @@ public class TraceController : ControllerBase
             }
             else
             {
-                return BadRequest(new TraceApiResult
-                {
-                    Success = false,
-                    Message = "Failed to start trace session",
-                    SessionName = request.SessionName
-                });
+                return BadRequest(new { error = "Failed to start trace session." });
             }
         }
         catch (Exception ex)
@@ -143,7 +134,18 @@ public class TraceController : ControllerBase
     {
         _logger.LogInformation("Getting status for trace session {SessionName}", sessionName);
 
-        var session = await _traceDataProvider.GetTraceSessionByNameAsync(sessionName);
+        TraceSession? session;
+        try
+        {
+            session = await _traceDataProvider.GetTraceSessionByNameAsync(sessionName);
+        }
+        catch (NpgsqlException ex)
+        {
+            // If the trace table or session doesn't exist, treat as not found
+            _logger.LogWarning(ex, "Database error getting trace session {SessionName}", sessionName);
+            return NotFound(new { error = $"Trace session '{sessionName}' not found" });
+        }
+
         if (session == null)
         {
             return NotFound(new { error = $"Trace session '{sessionName}' not found" });

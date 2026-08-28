@@ -115,6 +115,36 @@ public class TraceControllerTests : IClassFixture<WebApplicationFactory<Program>
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().Contain("\"error\"");
+        content.Should().NotContain("\"success\"");
+        content.Should().NotContain("\"sessionId\"");
+    }
+
+    [Fact]
+    public async Task GetTraceStatus_NonexistentSession_ReturnsNotFound()
+    {
+        // Arrange — use a factory that returns null for a specific session name
+        var notFoundClient = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                var mockTraceManager = new Mock<ITraceManager>();
+                var mockTraceDataProvider = new Mock<ITraceDataProvider>();
+
+                mockTraceDataProvider.Setup(x => x.GetTraceSessionByNameAsync("NonexistentSession"))
+                    .ReturnsAsync((TraceSession?)null);
+
+                services.AddSingleton(mockTraceManager.Object);
+                services.AddSingleton(mockTraceDataProvider.Object);
+            });
+        }).CreateClient();
+
+        // Act
+        var response = await notFoundClient.GetAsync("/api/trace/status/NonexistentSession");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]

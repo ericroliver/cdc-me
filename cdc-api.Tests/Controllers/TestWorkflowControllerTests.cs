@@ -164,6 +164,32 @@ public class TestWorkflowControllerTests : IClassFixture<WebApplicationFactory<P
     }
 
     [Fact]
+    public async Task ExecuteWorkflow_InvalidRequest_DoesNotIncludeWorkflowId()
+    {
+        // Arrange
+        var request = new WorkflowExecutionRequest
+        {
+            WorkflowName = "",
+            DatabaseName = "",
+            ConnectionString = "",
+            TraceConnectionString = "",
+            BaselineSnapshotName = "",
+            TestSnapshotName = "",
+            TraceSessionName = ""
+        };
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/api/testworkflow/execute", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().NotContain("workflowId");
+        content.Should().NotContain("workflow_id");
+        content.Should().Contain("\"error\"");
+    }
+
+    [Fact]
     public async Task GetWorkflowStatus_NonexistentWorkflow_ReturnsNotFound()
     {
         // Arrange
