@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Versioning System**: Runtime version tracking via `Directory.Build.props`, `IVersionProvider`, and `GET /api/version` endpoint
+  - Version, informational version, git commit hash, build date, and .NET runtime version exposed at `/api/version`
+  - Health check endpoint (`/health`) now returns detailed JSON with version information in each check entry
+  - Docker build accepts `GIT_COMMIT` and `BUILD_DATE` build args, passed through to runtime via env vars
+  - CI/CD workflow updated to pass `github.sha` and commit timestamp as build args
+  - `Directory.Build.props` at repo root sets `Version`, `InformationalVersion`, `AssemblyVersion`, `FileVersion` for all projects
+  - Single source of truth for versioning — bump in one place, CI/CD overrides via `-p:Version=...`
 - Environment variable configuration support for database connections
 - Transaction wrapping for CDC capture operations
 - ModelState validation for all API endpoints

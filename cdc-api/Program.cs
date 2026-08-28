@@ -1,6 +1,9 @@
 using cdc_api.Data;
+using cdc_api.HealthChecks;
 using DotNetEnv;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Softbase;
+using Softbase.Cdc;
 using Softbase.Cdc.Data;
 using Softbase.Cdc.Factory;
 using Softbase.Cdc.Factory.Engine;
@@ -58,7 +61,11 @@ if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")))
 
 // Add services to the container.
 
-builder.Services.AddHealthChecks();
+// Register Version Provider (Singleton — version doesn't change at runtime)
+builder.Services.AddSingleton<IVersionProvider, VersionProvider>();
+
+builder.Services.AddHealthChecks()
+    .AddCheck<VersionHealthCheck>("version", tags: new[] { "version" });
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
@@ -365,7 +372,26 @@ else
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var response = new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                data = e.Value.Data,
+                description = e.Value.Description
+            }),
+            totalDuration = report.TotalDuration.TotalMilliseconds
+        };
+        await context.Response.WriteAsJsonAsync(response);
+    }
+});
 
 // Test endpoint for development/diagnostics only
 if (app.Environment.IsDevelopment())
