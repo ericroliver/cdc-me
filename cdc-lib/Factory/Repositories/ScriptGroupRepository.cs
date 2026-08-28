@@ -166,6 +166,7 @@ public class ScriptGroupRepository : IScriptGroupRepository
             await using var reader = await command.ExecuteReaderAsync();
             if (!await reader.ReadAsync())
             {
+                await reader.CloseAsync();
                 await transaction.RollbackAsync();
                 return null;
             }

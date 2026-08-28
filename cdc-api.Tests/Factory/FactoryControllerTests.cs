@@ -17,13 +17,26 @@ public class FactoryControllerTests
 {
     private readonly Mock<IDatabaseFactory> _factoryMock = new();
     private readonly Mock<IOrderRepository> _orderRepositoryMock = new();
+    private readonly Mock<IDatabaseTemplateRepository> _templateRepositoryMock = new();
     private readonly FactoryController _controller;
 
     public FactoryControllerTests()
     {
+        // Default: template exists
+        _templateRepositoryMock.Setup(r => r.GetByIdAsync(It.IsAny<Guid>()))
+            .ReturnsAsync((Guid id) => new Template
+            {
+                Id = id,
+                Name = "Test Template",
+                Platform = "SqlServer",
+                FilePath = "/backups/test.bak",
+                CreatedAt = DateTime.UtcNow
+            });
+
         _controller = new FactoryController(
             _factoryMock.Object,
             _orderRepositoryMock.Object,
+            _templateRepositoryMock.Object,
             NullLogger<FactoryController>.Instance);
     }
 
@@ -138,6 +151,19 @@ public class FactoryControllerTests
         var result = await _controller.Create(MakeCreateDto());
 
         result.Result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task Create_ReturnsNotFound_WhenTemplateDoesNotExist()
+    {
+        var dto = MakeCreateDto();
+        _templateRepositoryMock.Setup(r => r.GetByIdAsync(dto.TemplateId))
+            .ReturnsAsync((Template?)null);
+
+        var result = await _controller.Create(dto);
+
+        result.Result.Should().BeOfType<NotFoundObjectResult>();
+        _factoryMock.Verify(f => f.OrderAsync(It.IsAny<OrderRequest>()), Times.Never);
     }
 
     // ───────────────────────────────────────────────────────────────

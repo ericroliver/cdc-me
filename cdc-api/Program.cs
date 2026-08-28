@@ -1,5 +1,6 @@
 using cdc_api.Data;
 using cdc_api.HealthChecks;
+using cdc_api.Middleware;
 using DotNetEnv;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Softbase;
@@ -270,6 +271,9 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Register global exception handler — must be first in the pipeline
+app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
 // Run Factory schema migrations on startup
 var schemaLogger = app.Services.GetRequiredService<ILogger<Program>>();

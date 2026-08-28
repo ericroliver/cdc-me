@@ -60,6 +60,22 @@ public class ScriptsControllerTests
     };
 
     [Fact]
+    public async Task Create_ReturnsBadRequest_WhenScriptGroupIdIsEmpty()
+    {
+        var dto = new CreateScriptDto
+        {
+            Name = "test",
+            Content = "SELECT 1",
+            ScriptGroupId = Guid.Empty
+        };
+
+        var result = await _controller.Create(dto);
+
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+        _libraryMock.Verify(l => l.CreateScriptAsync(It.IsAny<CreateScriptRequest>()), Times.Never);
+    }
+
+    [Fact]
     public async Task Create_ReturnsBadRequest_WhenNoContentOrFilePath()
     {
         var dto = new CreateScriptDto { Name = "test", ScriptGroupId = Guid.NewGuid() };

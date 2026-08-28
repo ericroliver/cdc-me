@@ -27,6 +27,9 @@ public class ScriptsController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Content) && string.IsNullOrWhiteSpace(request.FilePath))
             return BadRequest(new { error = "Either Content or FilePath must be provided" });
 
+        if (request.ScriptGroupId == Guid.Empty)
+            return BadRequest(new { error = "ScriptGroupId is required and must be a valid GUID." });
+
         try
         {
             var created = await _scriptLibrary.CreateScriptAsync(new CreateScriptRequest

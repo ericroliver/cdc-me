@@ -15,15 +15,18 @@ public class FactoryController : ControllerBase
 {
     private readonly IDatabaseFactory _factory;
     private readonly IOrderRepository _orderRepository;
+    private readonly IDatabaseTemplateRepository _templateRepository;
     private readonly ILogger<FactoryController> _logger;
 
     public FactoryController(
         IDatabaseFactory factory,
         IOrderRepository orderRepository,
+        IDatabaseTemplateRepository templateRepository,
         ILogger<FactoryController> logger)
     {
         _factory = factory ?? throw new ArgumentNullException(nameof(factory));
         _orderRepository = orderRepository ?? throw new ArgumentNullException(nameof(orderRepository));
+        _templateRepository = templateRepository ?? throw new ArgumentNullException(nameof(templateRepository));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -42,6 +45,11 @@ public class FactoryController : ControllerBase
 
         if (string.IsNullOrWhiteSpace(request.TargetDatabaseName))
             return BadRequest(new { error = "TargetDatabaseName is required." });
+
+        // Validate template exists before creating the order
+        var template = await _templateRepository.GetByIdAsync(request.TemplateId);
+        if (template is null)
+            return NotFound(new { error = $"Template not found: {request.TemplateId}" });
 
         try
         {
