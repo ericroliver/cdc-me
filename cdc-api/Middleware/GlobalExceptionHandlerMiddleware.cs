@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Npgsql;
+using Softbase.Cdc.Factory.Engine;
 using Microsoft.Data.SqlClient;
 
 namespace cdc_api.Middleware;
@@ -63,6 +64,12 @@ public class GlobalExceptionHandlerMiddleware
             _logger.LogWarning(ex, "Resource not found during {Method} {Path}",
                 context.Request.Method, context.Request.Path);
             await WriteError(context, HttpStatusCode.NotFound, ex.Message);
+        }
+        catch (ReferencedByOrdersException ex)
+        {
+            _logger.LogWarning(ex, "Referenced entity conflict during {Method} {Path}",
+                context.Request.Method, context.Request.Path);
+            await WriteError(context, HttpStatusCode.Conflict, ex.Message);
         }
         catch (InvalidOperationException ex)
         {

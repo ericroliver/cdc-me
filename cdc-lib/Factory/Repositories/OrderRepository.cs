@@ -226,6 +226,58 @@ public class OrderRepository : IOrderRepository
         return results;
     }
 
+    public async Task<bool> DeleteAsync(Guid id)
+    {
+        const string scriptGroupsSql = "DELETE FROM factory_order_script_groups WHERE order_id = @id";
+        const string parametersSql = "DELETE FROM factory_order_parameters WHERE order_id = @id";
+        const string provisionedDbsSql = "DELETE FROM factory_provisioned_databases WHERE order_id = @id";
+        const string orderSql = "DELETE FROM factory_orders WHERE id = @id";
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
+
+        try
+        {
+            await using (var cmd = new NpgsqlCommand(scriptGroupsSql, connection, transaction))
+            {
+                cmd.Parameters.AddWithValue("@id", id);
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            await using (var cmd = new NpgsqlCommand(parametersSql, connection, transaction))
+            {
+                cmd.Parameters.AddWithValue("@id", id);
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            await using (var cmd = new NpgsqlCommand(provisionedDbsSql, connection, transaction))
+            {
+                cmd.Parameters.AddWithValue("@id", id);
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            await using (var cmd = new NpgsqlCommand(orderSql, connection, transaction))
+            {
+                cmd.Parameters.AddWithValue("@id", id);
+                var rowsAffected = await cmd.ExecuteNonQueryAsync();
+                await transaction.CommitAsync();
+
+                if (rowsAffected > 0)
+                {
+                    _logger.LogInformation("Deleted order {OrderId}", id);
+                }
+
+                return rowsAffected > 0;
+            }
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
     internal static Order MapOrder(System.Data.IDataReader reader)
     {
         return new Order

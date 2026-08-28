@@ -71,7 +71,9 @@ public class FactoryController : ControllerBase
             if (order.Status == nameof(OrderStatus.Failed))
             {
                 _logger.LogWarning("Order {OrderId} failed: {Error}", order.Id, order.ErrorMessage);
-                return BadRequest(dto);
+                // The order was successfully created and persisted — return 200 OK.
+                // The order's Status field conveys "Failed" so clients can inspect it.
+                return Ok(dto);
             }
 
             _logger.LogInformation("Order {OrderId} completed with status {Status}", order.Id, order.Status);
@@ -105,6 +107,29 @@ public class FactoryController : ControllerBase
             return NotFound();
 
         return Ok(MapToDto(order));
+    }
+
+    /// <summary>
+    /// Delete an order. Only orders with "Failed" or "Delivered" status can be deleted.
+    /// </summary>
+    [HttpDelete("{id:guid}")]
+    public async Task<ActionResult> Delete(Guid id)
+    {
+        var order = await _orderRepository.GetByIdAsync(id);
+        if (order is null)
+            return NotFound();
+
+        if (order.Status != nameof(OrderStatus.Failed) && order.Status != nameof(OrderStatus.Delivered))
+        {
+            return Conflict(new { error = $"Cannot delete order with status '{order.Status}'. Only 'Failed' or 'Delivered' orders can be deleted." });
+        }
+
+        var deleted = await _orderRepository.DeleteAsync(id);
+        if (!deleted)
+            return NotFound();
+
+        _logger.LogInformation("Deleted order {OrderId}", id);
+        return NoContent();
     }
 
     /// <summary>

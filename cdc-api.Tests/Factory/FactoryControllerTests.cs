@@ -85,7 +85,7 @@ public class FactoryControllerTests
     }
 
     [Fact]
-    public async Task Create_ReturnsBadRequest_WhenOrderFails()
+    public async Task Create_ReturnsOk_WhenOrderFails()
     {
         var order = MakeOrder(status: nameof(OrderStatus.Failed));
         order.ErrorMessage = "Restore failed: disk full";
@@ -94,8 +94,8 @@ public class FactoryControllerTests
 
         var result = await _controller.Create(MakeCreateDto());
 
-        var badRequest = result.Result.Should().BeOfType<BadRequestObjectResult>().Subject;
-        var dto = badRequest.Value.Should().BeOfType<OrderDto>().Subject;
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var dto = okResult.Value.Should().BeOfType<OrderDto>().Subject;
         dto.Status.Should().Be(nameof(OrderStatus.Failed));
         dto.ErrorMessage.Should().Contain("disk full");
     }
@@ -274,5 +274,69 @@ public class FactoryControllerTests
         // Status DTO should only have Id, Status, DatabaseName
         dto.Status.Should().Be(order.Status);
         dto.DatabaseName.Should().Be(order.TargetDatabaseName);
+    }
+
+    // ───────────────────────────────────────────────────────────────
+    // DELETE /api/factory/orders/{id} — Delete
+    // ───────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Delete_ReturnsNoContent_WhenOrderIsFailed()
+    {
+        var order = MakeOrder(id: Guid.NewGuid(), status: nameof(OrderStatus.Failed));
+        _orderRepositoryMock.Setup(r => r.GetByIdAsync(order.Id)).ReturnsAsync(order);
+        _orderRepositoryMock.Setup(r => r.DeleteAsync(order.Id)).ReturnsAsync(true);
+
+        var result = await _controller.Delete(order.Id);
+
+        result.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task Delete_ReturnsNoContent_WhenOrderIsDelivered()
+    {
+        var order = MakeOrder(id: Guid.NewGuid(), status: nameof(OrderStatus.Delivered));
+        _orderRepositoryMock.Setup(r => r.GetByIdAsync(order.Id)).ReturnsAsync(order);
+        _orderRepositoryMock.Setup(r => r.DeleteAsync(order.Id)).ReturnsAsync(true);
+
+        var result = await _controller.Delete(order.Id);
+
+        result.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task Delete_ReturnsNotFound_WhenOrderDoesNotExist()
+    {
+        var id = Guid.NewGuid();
+        _orderRepositoryMock.Setup(r => r.GetByIdAsync(id)).ReturnsAsync((Order?)null);
+
+        var result = await _controller.Delete(id);
+
+        result.Should().BeOfType<NotFoundResult>();
+        _orderRepositoryMock.Verify(r => r.DeleteAsync(It.IsAny<Guid>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Delete_ReturnsConflict_WhenOrderStatusIsPending()
+    {
+        var order = MakeOrder(id: Guid.NewGuid(), status: nameof(OrderStatus.Pending));
+        _orderRepositoryMock.Setup(r => r.GetByIdAsync(order.Id)).ReturnsAsync(order);
+
+        var result = await _controller.Delete(order.Id);
+
+        var conflict = result.Should().BeOfType<ConflictObjectResult>().Subject;
+        _orderRepositoryMock.Verify(r => r.DeleteAsync(It.IsAny<Guid>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Delete_ReturnsConflict_WhenOrderStatusIsRestoring()
+    {
+        var order = MakeOrder(id: Guid.NewGuid(), status: nameof(OrderStatus.Restoring));
+        _orderRepositoryMock.Setup(r => r.GetByIdAsync(order.Id)).ReturnsAsync(order);
+
+        var result = await _controller.Delete(order.Id);
+
+        result.Should().BeOfType<ConflictObjectResult>();
+        _orderRepositoryMock.Verify(r => r.DeleteAsync(It.IsAny<Guid>()), Times.Never);
     }
 }

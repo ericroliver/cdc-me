@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Npgsql;
+using Softbase.Cdc.Factory.Engine;
 using Softbase.Cdc.Factory.Interfaces;
 using Softbase.Cdc.Factory.Models;
 
@@ -130,10 +131,8 @@ public class DatabaseTemplateRepository : IDatabaseTemplateRepository
         if (template is null)
             return false;
 
-        // Delete the file from storage
-        await _storageProvider.DeleteAsync(template.FilePath);
-
-        // Delete the metadata record
+        // Delete the metadata record first — if FK constraint from orders blocks it,
+        // we haven't deleted the file yet (no orphaned file).
         const string sql = "DELETE FROM factory_templates WHERE id = @id";
 
         await using var connection = new NpgsqlConnection(_connectionString);
@@ -142,7 +141,22 @@ public class DatabaseTemplateRepository : IDatabaseTemplateRepository
         await using var command = new NpgsqlCommand(sql, connection);
         command.Parameters.AddWithValue("@id", id);
 
-        await command.ExecuteNonQueryAsync();
+        try
+        {
+            await command.ExecuteNonQueryAsync();
+        }
+        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.ForeignKeyViolation)
+        {
+            _logger.LogWarning("Cannot delete template {Id}: referenced by existing orders", id);
+            throw new ReferencedByOrdersException(
+                "template",
+                "Cannot delete template referenced by existing orders.",
+                ex);
+        }
+
+        // DB record deleted successfully — now delete the file from storage
+        await _storageProvider.DeleteAsync(template.FilePath);
+
         _logger.LogInformation("Deleted template '{Name}' (Id={Id})", template.Name, template.Id);
         return true;
     }

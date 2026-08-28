@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using Softbase.Cdc.Factory.Engine;
 using Softbase.Cdc.Factory.Interfaces;
 using Softbase.Cdc.Factory.Models;
 using cdc_api.Controllers.Factory;
@@ -182,6 +183,21 @@ public class ConnectionsControllerTests
         var result = await _controller.Delete(id);
 
         result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task Delete_ReturnsConflict_WhenReferencedByOrders()
+    {
+        var id = Guid.NewGuid();
+        _registryMock.Setup(r => r.DeleteAsync(id))
+            .ThrowsAsync(new ReferencedByOrdersException(
+                "connection",
+                "Cannot delete connection referenced by existing orders."));
+
+        var result = await _controller.Delete(id);
+
+        var conflict = result.Should().BeOfType<ConflictObjectResult>().Subject;
+        var error = conflict.Value.Should().BeAssignableTo<dynamic>().Subject;
     }
 
     [Fact]

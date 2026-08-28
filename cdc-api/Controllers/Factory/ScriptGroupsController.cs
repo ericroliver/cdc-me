@@ -27,7 +27,7 @@ public class ScriptGroupsController : ControllerBase
     public async Task<ActionResult<ScriptGroupDto>> Create([FromBody] CreateScriptGroupDto request)
     {
         if (!ModelState.IsValid)
-            return BadRequest(ModelState);
+            return SanitizeModelState();
 
         try
         {
@@ -76,7 +76,7 @@ public class ScriptGroupsController : ControllerBase
     public async Task<ActionResult<ScriptGroupDto>> Update(Guid id, [FromBody] UpdateScriptGroupDto request)
     {
         if (!ModelState.IsValid)
-            return BadRequest(ModelState);
+            return SanitizeModelState();
 
         var updated = await _repository.UpdateGroupAsync(id, new UpdateScriptGroupRequest
         {
@@ -101,6 +101,27 @@ public class ScriptGroupsController : ControllerBase
             return NotFound();
 
         return NoContent();
+    }
+
+    /// <summary>
+    /// Returns a clean error response for invalid model state, replacing
+    /// raw .NET type names (e.g., from Guid conversion failures) with
+    /// user-friendly messages.
+    /// </summary>
+    private ActionResult SanitizeModelState()
+    {
+        var errors = ModelState
+            .SelectMany(kvp => kvp.Value!.Errors)
+            .Select(e => !string.IsNullOrEmpty(e.ErrorMessage) ? e.ErrorMessage : e.Exception?.Message)
+            .Where(m => !string.IsNullOrEmpty(m))
+            .ToList();
+
+        if (errors.Any(m => m!.Contains("System.") || m!.Contains("could not be converted")))
+        {
+            return BadRequest(new { error = "One or more fields contain invalid values. Dependencies must be valid UUIDs." });
+        }
+
+        return BadRequest(ModelState);
     }
 
     private static ScriptGroupDto MapToDto(ScriptGroup group) => new()
