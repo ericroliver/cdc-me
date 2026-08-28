@@ -122,6 +122,42 @@ public class TraceControllerTests : IClassFixture<WebApplicationFactory<Program>
     }
 
     [Fact]
+    public async Task StartTrace_Exception_ReturnsCleanErrorEnvelope()
+    {
+        // Arrange — factory with mock that throws on StartTraceAsync
+        var errorClient = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                var mockTraceManager = new Mock<ITraceManager>();
+                mockTraceManager.Setup(x => x.StartTraceAsync(It.IsAny<TraceConfiguration>()))
+                    .ThrowsAsync(new InvalidOperationException("Database unreachable"));
+                var mockTraceDataProvider = new Mock<ITraceDataProvider>();
+                services.AddSingleton(mockTraceManager.Object);
+                services.AddSingleton(mockTraceDataProvider.Object);
+            });
+        }).CreateClient();
+
+        var request = new StartTraceRequest
+        {
+            SessionName = "ErrorSession",
+            DatabaseName = "BadDB"
+        };
+
+        // Act
+        var response = await errorClient.PostAsJsonAsync("/api/trace/start", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().Contain("\"error\"");
+        content.Should().NotContain("\"success\"");
+        content.Should().NotContain("\"message\"");
+        content.Should().NotContain("\"sessionId\"");
+        content.Should().NotContain("\"sessionName\"");
+    }
+
+    [Fact]
     public async Task GetTraceStatus_NonexistentSession_ReturnsNotFound()
     {
         // Arrange — use a factory that returns null for a specific session name

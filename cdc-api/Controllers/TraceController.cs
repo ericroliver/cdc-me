@@ -38,52 +38,37 @@ public class TraceController : ControllerBase
             return BadRequest(new { error = "Required fields are missing: SessionName and DatabaseName are required." });
         }
 
-        try
+        _logger.LogInformation("Starting trace session {SessionName}", request.SessionName);
+
+        // Create trace configuration
+        var config = new TraceConfiguration
         {
-            _logger.LogInformation("Starting trace session {SessionName}", request.SessionName);
+            SessionName = request.SessionName,
+            DatabaseName = request.DatabaseName,
+            MaxFileSize = request.MaxFileSize ?? 100,
+            MaxFiles = request.MaxFiles ?? 5,
+            EventsToCapture = request.EventsToCapture ?? new List<string> { "sql_statement_completed" },
+            FilterCriteria = request.FilterCriteria ?? new Dictionary<string, object>()
+        };
 
-            // Create trace configuration
-            var config = new TraceConfiguration
-            {
-                SessionName = request.SessionName,
-                DatabaseName = request.DatabaseName,
-                MaxFileSize = request.MaxFileSize ?? 100,
-                MaxFiles = request.MaxFiles ?? 5,
-                EventsToCapture = request.EventsToCapture ?? new List<string> { "sql_statement_completed" },
-                FilterCriteria = request.FilterCriteria ?? new Dictionary<string, object>()
-            };
+        // Start the trace — let exceptions propagate to GlobalExceptionHandlerMiddleware
+        // for a consistent error envelope across all Trace endpoints
+        var session = await _traceManager.StartTraceAsync(config);
 
-            // Start the trace
-            var session = await _traceManager.StartTraceAsync(config);
-
-            if (session != null)
-            {
-                return Ok(new TraceApiResult
-                {
-                    Success = true,
-                    Message = "Trace session started successfully",
-                    SessionId = session.SessionId,
-                    SessionName = session.SessionName,
-                    Status = new TraceStatus { State = TraceStatus.Running },
-                    StartedAt = session.StartTime
-                });
-            }
-            else
-            {
-                return BadRequest(new { error = "Failed to start trace session." });
-            }
-        }
-        catch (Exception ex)
+        if (session != null)
         {
-            // SECURITY: Log detailed error server-side only, return generic message to client
-            _logger.LogError(ex, "Error starting trace session {SessionName}", request.SessionName);
-            return BadRequest(new TraceApiResult
+            return Ok(new TraceApiResult
             {
-                Success = false,
-                Message = "Failed to start trace session. Please check server logs for details.",
-                SessionName = request.SessionName
+                Success = true,
+                Message = "Trace session started successfully",
+                SessionId = session.SessionId,
+                SessionName = session.SessionName,
+                Status = new TraceStatus { State = TraceStatus.Running },
+                StartedAt = session.StartTime
             });
         }
+
+        return BadRequest(new { error = "Failed to start trace session." });
     }
 
     /// <summary>
