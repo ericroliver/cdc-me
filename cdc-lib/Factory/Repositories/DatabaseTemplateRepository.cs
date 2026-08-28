@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using Softbase.Cdc.Factory.Interfaces;
 using Softbase.Cdc.Factory.Models;
-using Softbase.Cdc.Factory.Providers;
 
 namespace Softbase.Cdc.Factory.Repositories;
 
@@ -87,10 +87,11 @@ public class DatabaseTemplateRepository : IDatabaseTemplateRepository
             throw new FileNotFoundException($"Template file not found: {request.FilePath}");
 
         // Compute checksum if not provided
-        var checksum = request.Checksum ?? LocalFileStorageProvider.ComputeChecksum(
-            System.IO.Path.IsPathRooted(request.FilePath)
-                ? request.FilePath
-                : request.FilePath);
+        var checksum = request.Checksum;
+        if (string.IsNullOrWhiteSpace(checksum))
+        {
+            checksum = await ComputeChecksumAsync(request.FilePath);
+        }
 
         const string insertSql = """
             INSERT INTO factory_templates
@@ -161,7 +162,7 @@ public class DatabaseTemplateRepository : IDatabaseTemplateRepository
         // Verify checksum if one is stored
         if (!string.IsNullOrEmpty(template.Checksum))
         {
-            var actualChecksum = LocalFileStorageProvider.ComputeChecksum(template.FilePath);
+            var actualChecksum = await ComputeChecksumAsync(template.FilePath);
             if (!string.Equals(actualChecksum, template.Checksum, StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogWarning(
@@ -172,6 +173,18 @@ public class DatabaseTemplateRepository : IDatabaseTemplateRepository
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Computes a SHA256 checksum for a file via the storage provider,
+    /// ensuring correct path resolution regardless of relative/absolute paths.
+    /// </summary>
+    private async Task<string> ComputeChecksumAsync(string filePath)
+    {
+        await using var stream = await _storageProvider.RetrieveAsync(filePath);
+        using var sha256 = SHA256.Create();
+        var hash = sha256.ComputeHash(stream);
+        return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
     internal static Template MapTemplate(System.Data.IDataReader reader)

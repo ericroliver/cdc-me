@@ -36,6 +36,7 @@ public class ConnectionsController : ControllerBase
 
         try
         {
+            _logger.LogInformation("Creating connection '{Name}' ({Platform})", request.Name, request.Platform);
             var created = await _connectionRegistry.CreateAsync(new CreateConnectionRequest
             {
                 Name = request.Name,
@@ -52,6 +53,7 @@ public class ConnectionsController : ControllerBase
         }
         catch (ArgumentException ex)
         {
+            _logger.LogWarning(ex, "Invalid connection request for '{Name}'", request.Name);
             return BadRequest(new { error = ex.Message });
         }
     }

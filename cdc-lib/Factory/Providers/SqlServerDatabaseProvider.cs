@@ -40,11 +40,12 @@ public class SqlServerDatabaseProvider : IDatabaseProvider
             var (logicalDataName, logicalLogName) = await GetLogicalFileNamesAsync(backupFilePath, connectionString);
 
             // Step 2: Build RESTORE DATABASE with MOVE clauses
+            var escapedDbName = EscapeSqlIdentifier(databaseName);
             var dataFileName = $"{databaseName}_data.mdf";
             var logFileName = $"{databaseName}_log.ldf";
 
             var restoreSql = $@"
-                RESTORE DATABASE [{databaseName}] 
+                RESTORE DATABASE [{escapedDbName}] 
                 FROM DISK = '{EscapeSqlLiteral(backupFilePath)}'
                 WITH 
                     MOVE '{logicalDataName}' TO '/var/opt/mssql/data/{dataFileName}',
@@ -79,7 +80,7 @@ public class SqlServerDatabaseProvider : IDatabaseProvider
 
         try
         {
-            var sql = $"CREATE DATABASE [{databaseName}]";
+            var sql = $"CREATE DATABASE [{EscapeSqlIdentifier(databaseName)}]";
 
             await using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
@@ -108,7 +109,7 @@ public class SqlServerDatabaseProvider : IDatabaseProvider
         {
             // Set database to single-user mode to kick out existing connections
             var setSingleUserSql = $@"
-                ALTER DATABASE [{databaseName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE";
+                ALTER DATABASE [{EscapeSqlIdentifier(databaseName)}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE";
 
             await using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
@@ -125,7 +126,7 @@ public class SqlServerDatabaseProvider : IDatabaseProvider
                 _logger.LogWarning("Could not set single-user mode for '{Db}': {Msg}", databaseName, ex.Message);
             }
 
-            var dropSql = $"DROP DATABASE [{databaseName}]";
+            var dropSql = $"DROP DATABASE [{EscapeSqlIdentifier(databaseName)}]";
             await using var dropCommand = new SqlCommand(dropSql, connection);
             await dropCommand.ExecuteNonQueryAsync();
 
@@ -243,4 +244,11 @@ public class SqlServerDatabaseProvider : IDatabaseProvider
     /// file path parameters used in RESTORE statements.
     /// </summary>
     internal static string EscapeSqlLiteral(string input) => input.Replace("'", "''");
+
+    /// <summary>
+    /// Escapes a SQL Server identifier (e.g., database name) for use inside
+    /// bracket-quoted identifiers. In SQL Server, ']' inside '[...]' is
+    /// escaped by doubling it: '[' becomes '[[' and ']' becomes ']]'.
+    /// </summary>
+    internal static string EscapeSqlIdentifier(string identifier) => identifier.Replace("]", "]]");
 }

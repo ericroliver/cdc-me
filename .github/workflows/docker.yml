@@ -154,7 +154,7 @@ jobs:
           build-args: |
             VERSION=${{ needs.build-info.outputs.version }}
             GIT_COMMIT=${{ github.sha }}
-            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp || github.event.pull_request.updated_at || 'unknown' }}
           cache-from: type=gha
           cache-to: type=gha,mode=min
 
@@ -214,7 +214,7 @@ jobs:
           build-args: |
             VERSION=${{ needs.build-info.outputs.version }}
             GIT_COMMIT=${{ github.sha }}
-            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp || github.event.pull_request.updated_at || 'unknown' }}
           cache-from: type=gha
 
       - name: Test Docker image - Health check endpoint

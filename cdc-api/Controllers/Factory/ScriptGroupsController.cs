@@ -31,6 +31,7 @@ public class ScriptGroupsController : ControllerBase
 
         try
         {
+            _logger.LogInformation("Creating script group '{Name}' (Layer={Layer}, Order={Order})", request.Name, request.Layer, request.Order);
             var created = await _repository.CreateGroupAsync(new CreateScriptGroupRequest
             {
                 Name = request.Name,
@@ -44,6 +45,7 @@ public class ScriptGroupsController : ControllerBase
         }
         catch (ArgumentException ex)
         {
+            _logger.LogWarning(ex, "Invalid script group request for '{Name}'", request.Name);
             return BadRequest(new { error = ex.Message });
         }
     }

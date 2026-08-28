@@ -21,18 +21,21 @@ public class VersionProvider : IVersionProvider
         var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
 
         var informationalAttr = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
-        var versionAttr = assembly.GetCustomAttribute<AssemblyVersionAttribute>();
 
         _informationalVersion = informationalAttr?.InformationalVersion ?? "0.0.0";
-        _version = versionAttr?.Version ?? "0.0.0.0";
+
+        // Derive the semantic version by stripping the '+metadata' suffix
+        // (e.g., "1.0.0-dev.42+sha.abc1234" -> "1.0.0-dev.42")
+        var plusIndex = _informationalVersion.IndexOf('+');
+        _version = plusIndex >= 0 ? _informationalVersion[..plusIndex] : _informationalVersion;
 
         // Parse commit hash from informational version (format: "1.0.0+sha.abc1234")
         // or fall back to environment variable
         _commitHash = ParseCommitHash(_informationalVersion)
-            ?? Environment.GetEnvironmentVariable("GIT_COMMIT")
+            ?? GetEnvironmentVariableOrEmpty("GIT_COMMIT")
             ?? "unknown";
 
-        _buildDate = Environment.GetEnvironmentVariable("BUILD_DATE")
+        _buildDate = GetEnvironmentVariableOrEmpty("BUILD_DATE")
             ?? File.GetLastWriteTimeUtc(assembly.Location).ToString("O");
     }
 
@@ -54,5 +57,15 @@ public class VersionProvider : IVersionProvider
             return metadata[4..];
 
         return metadata;
+    }
+
+    /// <summary>
+    /// Returns an environment variable value only if it is non-empty;
+    /// returns null for unset or blank values so the ?? fallback chain works.
+    /// </summary>
+    private static string? GetEnvironmentVariableOrEmpty(string name)
+    {
+        var value = Environment.GetEnvironmentVariable(name);
+        return string.IsNullOrWhiteSpace(value) ? null : value;
     }
 }

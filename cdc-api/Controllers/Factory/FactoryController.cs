@@ -63,18 +63,23 @@ public class FactoryController : ControllerBase
                 ParameterFilePath = request.ParameterFilePath
             };
 
+            _logger.LogInformation("Creating order for template {TemplateId} -> database '{DbName}'", request.TemplateId, request.TargetDatabaseName);
+
             var order = await _factory.OrderAsync(orderRequest);
             var dto = MapToDto(order);
 
             if (order.Status == nameof(OrderStatus.Failed))
             {
+                _logger.LogWarning("Order {OrderId} failed: {Error}", order.Id, order.ErrorMessage);
                 return BadRequest(dto);
             }
 
+            _logger.LogInformation("Order {OrderId} completed with status {Status}", order.Id, order.Status);
             return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto);
         }
         catch (ArgumentException ex)
         {
+            _logger.LogWarning(ex, "Invalid order request for template {TemplateId}", request.TemplateId);
             return BadRequest(new { error = ex.Message });
         }
     }

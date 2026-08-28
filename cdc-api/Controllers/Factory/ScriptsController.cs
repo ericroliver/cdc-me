@@ -32,6 +32,7 @@ public class ScriptsController : ControllerBase
 
         try
         {
+            _logger.LogInformation("Creating script '{Name}' in group {ScriptGroupId}", request.Name, request.ScriptGroupId);
             var created = await _scriptLibrary.CreateScriptAsync(new CreateScriptRequest
             {
                 Name = request.Name,
@@ -47,6 +48,7 @@ public class ScriptsController : ControllerBase
         }
         catch (ArgumentException ex)
         {
+            _logger.LogWarning(ex, "Invalid script request for '{Name}'", request.Name);
             return BadRequest(new { error = ex.Message });
         }
     }

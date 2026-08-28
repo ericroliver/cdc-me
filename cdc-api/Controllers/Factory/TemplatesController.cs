@@ -32,6 +32,8 @@ public class TemplatesController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Name))
             return BadRequest(new { error = "Name is required" });
 
+        _logger.LogInformation("Storing template '{Name}' version '{Version}'", request.Name, request.Version);
+
         // Store the file
         var fileName = $"{request.Name}_{request.Version}_{DateTime.UtcNow:yyyyMMddHHmmss}.bak";
         await using var stream = request.File.OpenReadStream();
@@ -76,10 +78,12 @@ public class TemplatesController : ControllerBase
         }
         catch (ArgumentException ex)
         {
+            _logger.LogWarning(ex, "Invalid template registration for '{Name}'", request.Name);
             return BadRequest(new { error = ex.Message });
         }
         catch (FileNotFoundException ex)
         {
+            _logger.LogWarning(ex, "Template file not found: {Message}", ex.Message);
             return BadRequest(new { error = ex.Message });
         }
     }
