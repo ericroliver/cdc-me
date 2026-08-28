@@ -4,7 +4,7 @@
   <!-- CI/CD overrides via -p:Version=... -p:InformationalVersion=... -->
   <!-- Local dev uses these defaults. -->
   <PropertyGroup>
-    <VersionPrefix>1.0.2</VersionPrefix>
+    <VersionPrefix>1.0.3</VersionPrefix>
     <VersionSuffix Condition="'$(GITHUB_RUN_NUMBER)' != ''">dev.$(GITHUB_RUN_NUMBER)</VersionSuffix>
     <Version Condition="'$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</Version>
     <Version Condition="'$(VersionSuffix)' == ''">$(VersionPrefix)</Version>
