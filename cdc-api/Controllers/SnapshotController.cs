@@ -79,6 +79,19 @@ public class SnapshotController : ControllerBase
     [HttpPost("restore")]
     public async Task<ActionResult<SnapshotApiResult>> RestoreSnapshot([FromBody] RestoreSnapshotRequest request)
     {
+        // Validate required fields
+        if (string.IsNullOrWhiteSpace(request.DatabaseName) ||
+            string.IsNullOrWhiteSpace(request.SnapshotName))
+        {
+            return BadRequest(new SnapshotApiResult
+            {
+                Success = false,
+                Message = "Required fields are missing: DatabaseName and SnapshotName are required.",
+                SnapshotName = request.SnapshotName,
+                DatabaseName = request.DatabaseName
+            });
+        }
+
         try
         {
             _logger.LogInformation("Restoring snapshot {SnapshotName} to database {DatabaseName}",

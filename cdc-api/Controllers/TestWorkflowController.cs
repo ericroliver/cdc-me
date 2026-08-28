@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Softbase.Cdc.Models;
 using Softbase.Cdc.Trace;
+using System.Collections.Concurrent;
 
 namespace cdc_api.Controllers;
 
@@ -14,6 +15,11 @@ public class TestWorkflowController : ControllerBase
     private readonly IReplayEngine _replayEngine;
     private readonly ICdcComparator _cdcComparator;
     private readonly ITraceDataProvider _traceDataProvider;
+
+    // In-memory store for tracking workflow execution status.
+    // Keyed by workflowId so GetWorkflowStatus can look up real entries
+    // and return 404 for unknown workflow IDs.
+    private static readonly ConcurrentDictionary<Guid, WorkflowStatus> _workflowStore = new();
 
     public TestWorkflowController(
         ILogger<TestWorkflowController> logger,
@@ -61,6 +67,15 @@ public class TestWorkflowController : ControllerBase
         }
 
         var workflowId = Guid.NewGuid();
+
+        // Register the workflow in the in-memory store for status lookups
+        _workflowStore[workflowId] = new WorkflowStatus
+        {
+            WorkflowId = workflowId,
+            Status = "Running",
+            Message = "Workflow execution started"
+        };
+
         var result = new WorkflowExecutionResult
         {
             WorkflowId = workflowId,
@@ -277,6 +292,16 @@ public class TestWorkflowController : ControllerBase
             result.Success = result.Steps.All(s => s.Success);
             result.Duration = result.EndTime.Value - result.StartTime;
 
+            // Update in-memory store with final status
+            _workflowStore[workflowId] = new WorkflowStatus
+            {
+                WorkflowId = workflowId,
+                Status = result.Success ? "Completed" : "Failed",
+                Message = result.Success
+                    ? "Workflow completed successfully"
+                    : "Workflow completed with errors"
+            };
+
             _logger.LogInformation("Workflow execution {WorkflowId} completed: {Success}",
                 workflowId, result.Success ? "SUCCESS" : "FAILURE");
 
@@ -292,6 +317,14 @@ public class TestWorkflowController : ControllerBase
             result.Duration = result.EndTime.Value - result.StartTime;
             result.ErrorMessage = "Workflow execution failed. Please check server logs for details.";
 
+            // Update in-memory store with failed status
+            _workflowStore[workflowId] = new WorkflowStatus
+            {
+                WorkflowId = workflowId,
+                Status = "Failed",
+                Message = "Workflow execution failed"
+            };
+
             return BadRequest(result);
         }
     }
@@ -304,25 +337,12 @@ public class TestWorkflowController : ControllerBase
     [HttpGet("status/{workflowId}")]
     public async Task<ActionResult<WorkflowStatus>> GetWorkflowStatus(Guid workflowId)
     {
-        try
+        if (!_workflowStore.TryGetValue(workflowId, out var status))
         {
-            // In a real implementation, this would retrieve status from a persistent store
-            // For now, return a placeholder response
-            await Task.Delay(10);
+            return NotFound(new { error = $"Workflow '{workflowId}' not found" });
+        }
 
-            return Ok(new WorkflowStatus
-            {
-                WorkflowId = workflowId,
-                Status = "Completed", // This would be dynamic
-                Message = "Workflow status retrieved successfully"
-            });
-        }
-        catch (Exception ex)
-        {
-            // SECURITY: Log detailed error server-side only, return generic message to client
-            _logger.LogError(ex, "Error getting workflow status for {WorkflowId}", workflowId);
-            return BadRequest(new { error = "Failed to retrieve workflow status. Please check server logs for details." });
-        }
+        return Ok(status);
     }
 
     /// <summary>
@@ -332,19 +352,19 @@ public class TestWorkflowController : ControllerBase
     [HttpGet("executions")]
     public async Task<ActionResult<List<WorkflowExecutionSummary>>> ListWorkflowExecutions()
     {
-        try
-        {
-            // In a real implementation, this would retrieve from a persistent store
-            // For now, return an empty list
-            await Task.Delay(10);
+        await Task.Delay(10);
 
-            return Ok(new List<WorkflowExecutionSummary>());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error listing workflow executions");
-            return BadRequest(new { error = $"Error listing workflow executions: {ex.Message}" });
-        }
+        var summaries = _workflowStore.Values
+            .Select(s => new WorkflowExecutionSummary
+            {
+                WorkflowId = s.WorkflowId,
+                WorkflowName = s.Message ?? string.Empty,
+                StartTime = DateTime.UtcNow,
+                Success = s.Status == "Completed"
+            })
+            .ToList();
+
+        return Ok(summaries);
     }
 
     private async Task<WorkflowStepResult> ExecuteStep(string stepName, Func<Task<string>> stepAction)
@@ -365,7 +385,7 @@ public class TestWorkflowController : ControllerBase
         {
             _logger.LogError(ex, "Error executing workflow step: {StepName}", stepName);
             stepResult.Success = false;
-            stepResult.Message = ex.Message;
+            stepResult.Message = $"Step '{stepName}' failed. See server logs for details.";
         }
         finally
         {

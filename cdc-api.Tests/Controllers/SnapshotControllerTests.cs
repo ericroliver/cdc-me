@@ -106,6 +106,23 @@ public class SnapshotControllerTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
+    public async Task RestoreSnapshot_InvalidRequest_ReturnsBadRequest()
+    {
+        // Arrange
+        var request = new RestoreSnapshotRequest
+        {
+            DatabaseName = "",
+            SnapshotName = ""
+        };
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/api/snapshot/restore", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task ListSnapshots_ValidRequest_ReturnsOk()
     {
         // Arrange

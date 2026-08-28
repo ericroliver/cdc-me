@@ -103,52 +103,34 @@ public class TraceController : ControllerBase
     [HttpPost("stop")]
     public async Task<ActionResult<TraceApiResult>> StopTrace([FromBody] StopTraceRequest request)
     {
-        try
+        // Get session by name first to get the SessionId
+        var session = await _traceDataProvider.GetTraceSessionByNameAsync(request.SessionName);
+        if (session == null)
         {
-            _logger.LogInformation("Stopping trace session {SessionName}", request.SessionName);
-
-            // Stop the trace
-            // Get session by name first to get the SessionId
-            var session = await _traceDataProvider.GetTraceSessionByNameAsync(request.SessionName);
-            if (session == null)
-            {
-                return NotFound($"Trace session '{request.SessionName}' not found");
-            }
-
-            var stoppedSession = await _traceManager.StopTraceAsync(session.SessionId);
-
-            if (stoppedSession != null)
-            {
-                return Ok(new TraceApiResult
-                {
-                    Success = true,
-                    Message = "Trace session stopped successfully",
-                    SessionId = stoppedSession.SessionId,
-                    SessionName = stoppedSession.SessionName,
-                    Status = new TraceStatus { State = TraceStatus.Stopped },
-                    StoppedAt = stoppedSession.EndTime ?? DateTime.UtcNow
-                });
-            }
-            else
-            {
-                return BadRequest(new TraceApiResult
-                {
-                    Success = false,
-                    Message = "Failed to stop trace session",
-                    SessionName = request.SessionName
-                });
-            }
+            return NotFound($"Trace session '{request.SessionName}' not found");
         }
-        catch (Exception ex)
+
+        var stoppedSession = await _traceManager.StopTraceAsync(session.SessionId);
+
+        if (stoppedSession != null)
         {
-            _logger.LogError(ex, "Error stopping trace session {SessionName}", request.SessionName);
-            return BadRequest(new TraceApiResult
+            return Ok(new TraceApiResult
             {
-                Success = false,
-                Message = $"Error stopping trace: {ex.Message}",
-                SessionName = request.SessionName
+                Success = true,
+                Message = "Trace session stopped successfully",
+                SessionId = stoppedSession.SessionId,
+                SessionName = stoppedSession.SessionName,
+                Status = new TraceStatus { State = TraceStatus.Stopped },
+                StoppedAt = stoppedSession.EndTime ?? DateTime.UtcNow
             });
         }
+
+        return BadRequest(new TraceApiResult
+        {
+            Success = false,
+            Message = "Failed to stop trace session",
+            SessionName = request.SessionName
+        });
     }
 
     /// <summary>
@@ -159,36 +141,28 @@ public class TraceController : ControllerBase
     [HttpGet("status/{sessionName}")]
     public async Task<ActionResult<TraceSessionStatus>> GetTraceStatus(string sessionName)
     {
-        try
+        _logger.LogInformation("Getting status for trace session {SessionName}", sessionName);
+
+        var session = await _traceDataProvider.GetTraceSessionByNameAsync(sessionName);
+        if (session == null)
         {
-            _logger.LogInformation("Getting status for trace session {SessionName}", sessionName);
-
-            var session = await _traceDataProvider.GetTraceSessionByNameAsync(sessionName);
-            if (session == null)
-            {
-                return NotFound(new { error = $"Trace session '{sessionName}' not found" });
-            }
-
-            // Use TraceManager's comprehensive status checking
-            var traceStatus = await _traceManager.GetTraceStatusAsync(session.SessionId);
-
-            return Ok(new TraceSessionStatus
-            {
-                SessionId = session.SessionId,
-                SessionName = session.SessionName,
-                DatabaseName = session.DatabaseName,
-                Status = new TraceStatus { State = traceStatus.State },
-                StartTime = session.StartTime,
-                EndTime = session.EndTime,
-                EventCount = traceStatus.EventCount,
-                Configuration = session.Configuration
-            });
+            return NotFound(new { error = $"Trace session '{sessionName}' not found" });
         }
-        catch (Exception ex)
+
+        // Use TraceManager's comprehensive status checking
+        var traceStatus = await _traceManager.GetTraceStatusAsync(session.SessionId);
+
+        return Ok(new TraceSessionStatus
         {
-            _logger.LogError(ex, "Error getting trace status for {SessionName}", sessionName);
-            return BadRequest(new { error = $"Error getting trace status: {ex.Message}" });
-        }
+            SessionId = session.SessionId,
+            SessionName = session.SessionName,
+            DatabaseName = session.DatabaseName,
+            Status = new TraceStatus { State = traceStatus.State },
+            StartTime = session.StartTime,
+            EndTime = session.EndTime,
+            EventCount = traceStatus.EventCount,
+            Configuration = session.Configuration
+        });
     }
 
     /// <summary>
@@ -198,30 +172,22 @@ public class TraceController : ControllerBase
     [HttpGet("sessions")]
     public async Task<ActionResult<List<TraceSessionSummary>>> ListTraceSessions()
     {
-        try
+        _logger.LogInformation("Listing all trace sessions");
+
+        var sessions = await _traceDataProvider.GetTraceSessionsAsync();
+
+        var summaries = sessions.Select(s => new TraceSessionSummary
         {
-            _logger.LogInformation("Listing all trace sessions");
+            SessionId = s.SessionId,
+            SessionName = s.SessionName,
+            DatabaseName = s.DatabaseName,
+            Status = new TraceStatus { State = s.Status },
+            StartTime = s.StartTime,
+            EndTime = s.EndTime,
+            EventCount = 0 // Will be populated separately if needed
+        }).ToList();
 
-            var sessions = await _traceDataProvider.GetTraceSessionsAsync();
-
-            var summaries = sessions.Select(s => new TraceSessionSummary
-            {
-                SessionId = s.SessionId,
-                SessionName = s.SessionName,
-                DatabaseName = s.DatabaseName,
-                Status = new TraceStatus { State = s.Status },
-                StartTime = s.StartTime,
-                EndTime = s.EndTime,
-                EventCount = 0 // Will be populated separately if needed
-            }).ToList();
-
-            return Ok(summaries);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error listing trace sessions");
-            return BadRequest(new { error = $"Error listing trace sessions: {ex.Message}" });
-        }
+        return Ok(summaries);
     }
 
     /// <summary>
@@ -232,37 +198,24 @@ public class TraceController : ControllerBase
     [HttpPost("export")]
     public async Task<ActionResult<TraceApiResult>> ExportTrace([FromBody] ExportTraceRequest request)
     {
-        try
+        _logger.LogInformation("Exporting trace data for session {SessionName}", request.SessionName);
+
+        // Get session by name to get SessionId
+        var session = await _traceDataProvider.GetTraceSessionByNameAsync(request.SessionName);
+        if (session == null)
         {
-            _logger.LogInformation("Exporting trace data for session {SessionName}", request.SessionName);
-
-            // Get session by name to get SessionId
-            var session = await _traceDataProvider.GetTraceSessionByNameAsync(request.SessionName);
-            if (session == null)
-            {
-                return NotFound($"Trace session '{request.SessionName}' not found");
-            }
-
-            var exportPath = await _traceManager.ExportTraceDataAsync(session.SessionId, $"trace_export_{session.SessionId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json");
-
-            return Ok(new TraceApiResult
-            {
-                Success = true,
-                Message = $"Trace data exported to {exportPath}",
-                SessionName = request.SessionName,
-                ExportedAt = DateTime.UtcNow
-            });
+            return NotFound($"Trace session '{request.SessionName}' not found");
         }
-        catch (Exception ex)
+
+        var exportPath = await _traceManager.ExportTraceDataAsync(session.SessionId, $"trace_export_{session.SessionId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json");
+
+        return Ok(new TraceApiResult
         {
-            _logger.LogError(ex, "Error exporting trace data for {SessionName}", request.SessionName);
-            return BadRequest(new TraceApiResult
-            {
-                Success = false,
-                Message = $"Error exporting trace data: {ex.Message}",
-                SessionName = request.SessionName
-            });
-        }
+            Success = true,
+            Message = $"Trace data exported to {exportPath}",
+            SessionName = request.SessionName,
+            ExportedAt = DateTime.UtcNow
+        });
     }
 
     /// <summary>
@@ -278,19 +231,11 @@ public class TraceController : ControllerBase
         [FromQuery] int limit = 100,
         [FromQuery] int offset = 0)
     {
-        try
-        {
-            _logger.LogInformation("Getting trace events for session {SessionId}", sessionId);
+        _logger.LogInformation("Getting trace events for session {SessionId}", sessionId);
 
-            var events = await _traceDataProvider.GetTraceEventsAsync(sessionId, limit, offset);
+        var events = await _traceDataProvider.GetTraceEventsAsync(sessionId, limit, offset);
 
-            return Ok(events);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting trace events for session {SessionId}", sessionId);
-            return BadRequest(new { error = $"Error getting trace events: {ex.Message}" });
-        }
+        return Ok(events);
     }
 
     /// <summary>
@@ -301,44 +246,31 @@ public class TraceController : ControllerBase
     [HttpDelete("sessions/{sessionId}")]
     public async Task<ActionResult<TraceApiResult>> DeleteTraceSession(Guid sessionId)
     {
-        try
+        _logger.LogInformation("Deleting trace session {SessionId}", sessionId);
+
+        var session = await _traceDataProvider.GetTraceSessionAsync(sessionId);
+        if (session == null)
         {
-            _logger.LogInformation("Deleting trace session {SessionId}", sessionId);
-
-            var session = await _traceDataProvider.GetTraceSessionAsync(sessionId);
-            if (session == null)
-            {
-                return NotFound(new { error = $"Trace session '{sessionId}' not found" });
-            }
-
-            // Stop trace if running
-            if (session.Status == "Active")
-            {
-                await _traceManager.StopTraceAsync(sessionId);
-            }
-
-            // Delete session and related data
-            await _traceDataProvider.DeleteTraceSessionAsync(sessionId);
-
-            return Ok(new TraceApiResult
-            {
-                Success = true,
-                Message = "Trace session deleted successfully",
-                SessionId = sessionId,
-                SessionName = session.SessionName,
-                DeletedAt = DateTime.UtcNow
-            });
+            return NotFound(new { error = $"Trace session '{sessionId}' not found" });
         }
-        catch (Exception ex)
+
+        // Stop trace if running
+        if (session.Status == "Active")
         {
-            _logger.LogError(ex, "Error deleting trace session {SessionId}", sessionId);
-            return BadRequest(new TraceApiResult
-            {
-                Success = false,
-                Message = $"Error deleting trace session: {ex.Message}",
-                SessionId = sessionId
-            });
+            await _traceManager.StopTraceAsync(sessionId);
         }
+
+        // Delete session and related data
+        await _traceDataProvider.DeleteTraceSessionAsync(sessionId);
+
+        return Ok(new TraceApiResult
+        {
+            Success = true,
+            Message = "Trace session deleted successfully",
+            SessionId = sessionId,
+            SessionName = session.SessionName,
+            DeletedAt = DateTime.UtcNow
+        });
     }
 }
 
