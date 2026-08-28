@@ -185,6 +185,26 @@ public class DatabaseFactoryTests
         order.ErrorMessage.Should().Contain("not found");
     }
 
+    [Fact]
+    public async Task OrderAsync_PreservesScriptGroupIdsOnFailure()
+    {
+        var template = MakeTemplate();
+        var conn = MakeConnection();
+        var groupIds = new[] { Guid.NewGuid(), Guid.NewGuid() };
+
+        _templateRepository.Setup(r => r.GetByIdAsync(template.Id)).ReturnsAsync(template);
+        _connectionRegistry.Setup(r => r.GetByIdAsync(conn.Id)).ReturnsAsync(conn);
+        _databaseProvider.Setup(p => p.RestoreBackupAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(SqlResult.Fail("disk full"));
+
+        var request = MakeRequest(template.Id, connectionId: conn.Id, scriptGroupIds: groupIds);
+
+        var order = await _factory.OrderAsync(request);
+
+        order.Status.Should().Be(nameof(OrderStatus.Failed));
+        order.ScriptGroupIds.Should().BeEquivalentTo(groupIds);
+    }
+
     // ───────────────────────────────────────────────────────────────
     // Validation tests
     // ───────────────────────────────────────────────────────────────

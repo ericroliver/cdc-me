@@ -18,6 +18,7 @@ public class FactoryControllerTests
     private readonly Mock<IDatabaseFactory> _factoryMock = new();
     private readonly Mock<IOrderRepository> _orderRepositoryMock = new();
     private readonly Mock<IDatabaseTemplateRepository> _templateRepositoryMock = new();
+    private readonly Mock<IConnectionRegistry> _connectionRegistryMock = new();
     private readonly FactoryController _controller;
 
     public FactoryControllerTests()
@@ -33,10 +34,24 @@ public class FactoryControllerTests
                 CreatedAt = DateTime.UtcNow
             });
 
+        // Default: connection exists
+        _connectionRegistryMock.Setup(r => r.GetByIdAsync(It.IsAny<Guid>()))
+            .ReturnsAsync((Guid id) => new Connection
+            {
+                Id = id,
+                Name = "Test Connection",
+                Platform = "SqlServer",
+                Host = "localhost",
+                Port = 1433,
+                ConnectionString = "Server=localhost;Database=test;Trusted_Connection=True;",
+                CreatedAt = DateTime.UtcNow
+            });
+
         _controller = new FactoryController(
             _factoryMock.Object,
             _orderRepositoryMock.Object,
             _templateRepositoryMock.Object,
+            _connectionRegistryMock.Object,
             NullLogger<FactoryController>.Instance);
     }
 
@@ -164,6 +179,34 @@ public class FactoryControllerTests
 
         result.Result.Should().BeOfType<NotFoundObjectResult>();
         _factoryMock.Verify(f => f.OrderAsync(It.IsAny<OrderRequest>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Create_ReturnsNotFound_WhenConnectionDoesNotExist()
+    {
+        var dto = MakeCreateDto();
+        dto.TargetConnectionId = Guid.NewGuid();
+        _connectionRegistryMock.Setup(r => r.GetByIdAsync(dto.TargetConnectionId.Value))
+            .ReturnsAsync((Connection?)null);
+
+        var result = await _controller.Create(dto);
+
+        var notFound = result.Result.Should().BeOfType<NotFoundObjectResult>().Subject;
+        notFound.Value.Should().BeEquivalentTo(new { error = $"Connection not found: {dto.TargetConnectionId}" });
+        _factoryMock.Verify(f => f.OrderAsync(It.IsAny<OrderRequest>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Create_DoesNotValidateConnection_WhenNotSpecified()
+    {
+        var dto = MakeCreateDto();
+        dto.TargetConnectionId = null;
+        _factoryMock.Setup(f => f.OrderAsync(It.IsAny<OrderRequest>()))
+            .ReturnsAsync(MakeOrder());
+
+        await _controller.Create(dto);
+
+        _connectionRegistryMock.Verify(r => r.GetByIdAsync(It.IsAny<Guid>()), Times.Never);
     }
 
     // ───────────────────────────────────────────────────────────────

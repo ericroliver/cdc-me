@@ -3,6 +3,7 @@ using cdc_api.HealthChecks;
 using cdc_api.Middleware;
 using DotNetEnv;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Mvc;
 using Softbase;
 using Softbase.Cdc;
 using Softbase.Cdc.Data;
@@ -67,7 +68,30 @@ builder.Services.AddSingleton<IVersionProvider, VersionProvider>();
 
 builder.Services.AddHealthChecks()
     .AddCheck<VersionHealthCheck>("version", tags: new[] { "version" });
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            // Check for .NET type name leaks from JSON deserialization failures
+            // (e.g., "The JSON value could not be converted to System.Guid...")
+            var rawErrors = context.ModelState
+                .SelectMany(kvp => kvp.Value!.Errors)
+                .Select(e => !string.IsNullOrEmpty(e.ErrorMessage) ? e.ErrorMessage : e.Exception?.Message ?? string.Empty)
+                .ToList();
+
+            if (rawErrors.Any(m => m.Contains("System.") || m.Contains("BytePositionInLine")
+                || m.Contains("LineNumber") || m.Contains("could not be converted")))
+            {
+                return new BadRequestObjectResult(new
+                {
+                    error = "One or more fields contain invalid values. Please verify all GUID fields contain valid UUIDs."
+                });
+            }
+
+            return new BadRequestObjectResult(new ValidationProblemDetails(context.ModelState));
+        };
+    });
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>

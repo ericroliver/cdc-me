@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Npgsql;
@@ -199,7 +200,9 @@ public class OrderRepository : IOrderRepository
         if (!await reader.ReadAsync())
             return null;
 
-        return MapOrder(reader);
+        var order = MapOrder(reader);
+        await LoadScriptGroupIdsAsync(connection, order);
+        return order;
     }
 
     public async Task<IReadOnlyList<Order>> ListAsync()
@@ -223,6 +226,8 @@ public class OrderRepository : IOrderRepository
             results.Add(MapOrder(reader));
         }
 
+        await reader.CloseAsync();
+        await LoadScriptGroupIdsBatchAsync(connection, results);
         return results;
     }
 
@@ -275,6 +280,66 @@ public class OrderRepository : IOrderRepository
         {
             await transaction.RollbackAsync();
             throw;
+        }
+    }
+
+    private async Task LoadScriptGroupIdsAsync(NpgsqlConnection connection, Order order)
+    {
+        const string groupSql = """
+            SELECT script_group_id
+            FROM factory_order_script_groups
+            WHERE order_id = @orderId
+            ORDER BY script_group_id
+            """;
+
+        await using var groupCmd = new NpgsqlCommand(groupSql, connection);
+        groupCmd.Parameters.AddWithValue("@orderId", order.Id);
+
+        var groupIds = new List<Guid>();
+        await using var groupReader = await groupCmd.ExecuteReaderAsync();
+        while (await groupReader.ReadAsync())
+        {
+            groupIds.Add(groupReader.GetGuid(0));
+        }
+
+        order.ScriptGroupIds = groupIds;
+    }
+
+    private async Task LoadScriptGroupIdsBatchAsync(NpgsqlConnection connection, List<Order> orders)
+    {
+        if (orders.Count == 0)
+            return;
+
+        var orderIds = orders.Select(o => o.Id).ToHashSet();
+        const string groupSql = """
+            SELECT order_id, script_group_id
+            FROM factory_order_script_groups
+            WHERE order_id = ANY(@orderIds)
+            ORDER BY script_group_id
+            """;
+
+        var groupMap = new Dictionary<Guid, List<Guid>>();
+        await using var groupCmd = new NpgsqlCommand(groupSql, connection);
+        groupCmd.Parameters.AddWithValue("@orderIds", orderIds.ToList());
+
+        await using var groupReader = await groupCmd.ExecuteReaderAsync();
+        while (await groupReader.ReadAsync())
+        {
+            var orderId = groupReader.GetGuid(0);
+            var scriptGroupId = groupReader.GetGuid(1);
+            if (!groupMap.TryGetValue(orderId, out var list))
+            {
+                list = new List<Guid>();
+                groupMap[orderId] = list;
+            }
+            list.Add(scriptGroupId);
+        }
+
+        foreach (var order in orders)
+        {
+            order.ScriptGroupIds = groupMap.TryGetValue(order.Id, out var ids)
+                ? ids
+                : Array.Empty<Guid>();
         }
     }
 

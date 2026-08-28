@@ -16,17 +16,20 @@ public class FactoryController : ControllerBase
     private readonly IDatabaseFactory _factory;
     private readonly IOrderRepository _orderRepository;
     private readonly IDatabaseTemplateRepository _templateRepository;
+    private readonly IConnectionRegistry _connectionRegistry;
     private readonly ILogger<FactoryController> _logger;
 
     public FactoryController(
         IDatabaseFactory factory,
         IOrderRepository orderRepository,
         IDatabaseTemplateRepository templateRepository,
+        IConnectionRegistry connectionRegistry,
         ILogger<FactoryController> logger)
     {
         _factory = factory ?? throw new ArgumentNullException(nameof(factory));
         _orderRepository = orderRepository ?? throw new ArgumentNullException(nameof(orderRepository));
         _templateRepository = templateRepository ?? throw new ArgumentNullException(nameof(templateRepository));
+        _connectionRegistry = connectionRegistry ?? throw new ArgumentNullException(nameof(connectionRegistry));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -50,6 +53,14 @@ public class FactoryController : ControllerBase
         var template = await _templateRepository.GetByIdAsync(request.TemplateId);
         if (template is null)
             return NotFound(new { error = $"Template not found: {request.TemplateId}" });
+
+        // Validate target connection exists (when specified) before creating the order
+        if (request.TargetConnectionId.HasValue && request.TargetConnectionId.Value != Guid.Empty)
+        {
+            var connection = await _connectionRegistry.GetByIdAsync(request.TargetConnectionId.Value);
+            if (connection is null)
+                return NotFound(new { error = $"Connection not found: {request.TargetConnectionId}" });
+        }
 
         try
         {
