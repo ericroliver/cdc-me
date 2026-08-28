@@ -7,6 +7,8 @@ ARG DOTNET_VERSION=10.0
 FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_VERSION} AS build
 ARG TARGETARCH
 ARG VERSION=1.0.0
+ARG GIT_COMMIT=unknown
+ARG BUILD_DATE=unknown
 
 WORKDIR /src
 
@@ -36,7 +38,8 @@ COPY . .
 RUN dotnet build "cdc-me.sln" \
     --configuration Release \
     --no-restore \
-    -p:Version=${VERSION}
+    -p:Version=${VERSION} \
+    -p:InformationalVersion=${VERSION}+sha.${GIT_COMMIT}
 
 # Run tests (optional, can be skipped in production builds)
 # RUN dotnet test "cdc-me.sln" \
@@ -49,7 +52,8 @@ RUN dotnet publish "cdc-api/cdc-api.csproj" \
     --runtime linux-musl-$(echo $TARGETARCH | sed 's/amd64/x64/; s/arm64/arm64/') \
     --self-contained false \
     --output /app/publish \
-    -p:Version=${VERSION}
+    -p:Version=${VERSION} \
+    -p:InformationalVersion=${VERSION}+sha.${GIT_COMMIT}
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION}-alpine AS runtime
@@ -66,6 +70,12 @@ RUN apk add --no-cache \
 
 # Set environment variable to enable globalization
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
+
+# Build metadata (available at runtime for version endpoint)
+ARG GIT_COMMIT=unknown
+ARG BUILD_DATE=unknown
+ENV GIT_COMMIT=${GIT_COMMIT}
+ENV BUILD_DATE=${BUILD_DATE}
 
 # Create non-root user
 RUN addgroup -g 1001 -S appgroup && \
