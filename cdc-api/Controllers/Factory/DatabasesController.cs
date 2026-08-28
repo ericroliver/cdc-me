@@ -24,6 +24,7 @@ public class DatabasesController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<ProvisionedDatabaseDto>>> List()
     {
+        _logger.LogInformation("Listing all provisioned databases");
         var databases = await _databaseRegistry.ListAsync();
         return Ok(databases.Select(MapToDto).ToList());
     }
@@ -31,9 +32,13 @@ public class DatabasesController : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<ProvisionedDatabaseDto>> GetById(Guid id)
     {
+        _logger.LogInformation("Getting provisioned database {DatabaseId}", id);
         var database = await _databaseRegistry.GetByIdAsync(id);
         if (database is null)
+        {
+            _logger.LogWarning("Provisioned database {DatabaseId} not found", id);
             return NotFound();
+        }
 
         return Ok(MapToDto(database));
     }
