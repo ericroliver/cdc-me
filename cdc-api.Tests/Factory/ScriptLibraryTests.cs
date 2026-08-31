@@ -84,6 +84,39 @@ public class ScriptsControllerTests
     }
 
     [Fact]
+    public async Task Create_ReturnsBadRequest_WhenBothContentAndFilePathProvided()
+    {
+        var dto = new CreateScriptDto
+        {
+            Name = "test",
+            Content = "SELECT 1",
+            FilePath = "/tmp/test.sql",
+            ScriptGroupId = Guid.NewGuid()
+        };
+
+        var result = await _controller.Create(dto);
+
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+        _libraryMock.Verify(l => l.CreateScriptAsync(It.IsAny<CreateScriptRequest>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Create_ReturnsCreatedAt_WhenOnlyFilePathProvided()
+    {
+        var dto = new CreateScriptDto
+        {
+            Name = "test",
+            FilePath = "/tmp/test.sql",
+            ScriptGroupId = Guid.NewGuid()
+        };
+        _libraryMock.Setup(l => l.CreateScriptAsync(It.IsAny<CreateScriptRequest>()))
+                    .ReturnsAsync(MakeScript());
+
+        var result = await _controller.Create(dto);
+        result.Result.Should().BeOfType<CreatedAtActionResult>();
+    }
+
+    [Fact]
     public async Task Create_ReturnsCreatedAt_WhenValid()
     {
         var dto = new CreateScriptDto

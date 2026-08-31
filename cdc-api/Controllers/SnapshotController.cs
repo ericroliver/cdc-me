@@ -47,9 +47,15 @@ public class SnapshotController : ControllerBase
                 request.DatabaseName,
                 request.SnapshotName);
 
+            if (!result.Success)
+            {
+                _logger.LogWarning("Snapshot creation failed for database {DatabaseName}: {Message}", request.DatabaseName, result.Message);
+                return BadRequest(new { error = "Failed to create snapshot. Please check server logs for details." });
+            }
+
             return Ok(new SnapshotApiResult
             {
-                Success = result.Success,
+                Success = true,
                 Message = result.Message,
                 SnapshotName = request.SnapshotName,
                 DatabaseName = request.DatabaseName,
@@ -79,6 +85,19 @@ public class SnapshotController : ControllerBase
     [HttpPost("restore")]
     public async Task<ActionResult<SnapshotApiResult>> RestoreSnapshot([FromBody] RestoreSnapshotRequest request)
     {
+        // Validate required fields
+        if (string.IsNullOrWhiteSpace(request.DatabaseName) ||
+            string.IsNullOrWhiteSpace(request.SnapshotName))
+        {
+            return BadRequest(new SnapshotApiResult
+            {
+                Success = false,
+                Message = "Required fields are missing: DatabaseName and SnapshotName are required.",
+                SnapshotName = request.SnapshotName,
+                DatabaseName = request.DatabaseName
+            });
+        }
+
         try
         {
             _logger.LogInformation("Restoring snapshot {SnapshotName} to database {DatabaseName}",
@@ -88,9 +107,15 @@ public class SnapshotController : ControllerBase
                 request.SnapshotName,
                 request.DatabaseName);
 
+            if (!result.Success)
+            {
+                _logger.LogWarning("Snapshot restore failed for snapshot {SnapshotName}: {Message}", request.SnapshotName, result.Message);
+                return BadRequest(new { error = "Failed to restore snapshot. Please check server logs for details." });
+            }
+
             return Ok(new SnapshotApiResult
             {
-                Success = result.Success,
+                Success = true,
                 Message = result.Message,
                 SnapshotName = request.SnapshotName,
                 DatabaseName = request.DatabaseName,
@@ -132,7 +157,7 @@ public class SnapshotController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error listing snapshots for database {DatabaseName}", databaseName);
-            return BadRequest(new { error = $"Error listing snapshots: {ex.Message}" });
+            return BadRequest(new { error = "Failed to list snapshots. Please check server logs for details." });
         }
     }
 
@@ -165,7 +190,7 @@ public class SnapshotController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting snapshot info for {SnapshotName}", snapshotName);
-            return BadRequest(new { error = $"Error getting snapshot info: {ex.Message}" });
+            return BadRequest(new { error = "Failed to get snapshot info. Please check server logs for details." });
         }
     }
 
@@ -179,7 +204,7 @@ public class SnapshotController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(snapshotName))
         {
-            return BadRequest("Snapshot name is required");
+            return BadRequest(new { error = "Snapshot name is required" });
         }
 
         try
@@ -188,9 +213,15 @@ public class SnapshotController : ControllerBase
 
             var result = await _snapshotManager.DropSnapshotAsync(snapshotName);
 
+            if (!result.Success)
+            {
+                _logger.LogWarning("Snapshot deletion failed for {SnapshotName}: {Message}", snapshotName, result.Message);
+                return NotFound(new { error = $"Snapshot '{snapshotName}' not found or could not be deleted." });
+            }
+
             return Ok(new SnapshotApiResult
             {
-                Success = result.Success,
+                Success = true,
                 Message = result.Message,
                 SnapshotName = snapshotName,
                 DeletedAt = DateTime.UtcNow
@@ -199,12 +230,7 @@ public class SnapshotController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting snapshot {SnapshotName}", snapshotName);
-            return BadRequest(new SnapshotApiResult
-            {
-                Success = false,
-                Message = $"Error deleting snapshot: {ex.Message}",
-                SnapshotName = snapshotName
-            });
+            return BadRequest(new { error = "Failed to delete snapshot. Please check server logs for details." });
         }
     }
 }

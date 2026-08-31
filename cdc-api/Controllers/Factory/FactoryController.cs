@@ -16,17 +16,20 @@ public class FactoryController : ControllerBase
     private readonly IDatabaseFactory _factory;
     private readonly IOrderRepository _orderRepository;
     private readonly IDatabaseTemplateRepository _templateRepository;
+    private readonly IConnectionRegistry _connectionRegistry;
     private readonly ILogger<FactoryController> _logger;
 
     public FactoryController(
         IDatabaseFactory factory,
         IOrderRepository orderRepository,
         IDatabaseTemplateRepository templateRepository,
+        IConnectionRegistry connectionRegistry,
         ILogger<FactoryController> logger)
     {
         _factory = factory ?? throw new ArgumentNullException(nameof(factory));
         _orderRepository = orderRepository ?? throw new ArgumentNullException(nameof(orderRepository));
         _templateRepository = templateRepository ?? throw new ArgumentNullException(nameof(templateRepository));
+        _connectionRegistry = connectionRegistry ?? throw new ArgumentNullException(nameof(connectionRegistry));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -51,6 +54,14 @@ public class FactoryController : ControllerBase
         if (template is null)
             return NotFound(new { error = $"Template not found: {request.TemplateId}" });
 
+        // Validate target connection exists (when specified) before creating the order
+        if (request.TargetConnectionId.HasValue && request.TargetConnectionId.Value != Guid.Empty)
+        {
+            var connection = await _connectionRegistry.GetByIdAsync(request.TargetConnectionId.Value);
+            if (connection is null)
+                return NotFound(new { error = $"Connection not found: {request.TargetConnectionId}" });
+        }
+
         try
         {
             var orderRequest = new OrderRequest
@@ -71,7 +82,9 @@ public class FactoryController : ControllerBase
             if (order.Status == nameof(OrderStatus.Failed))
             {
                 _logger.LogWarning("Order {OrderId} failed: {Error}", order.Id, order.ErrorMessage);
-                return BadRequest(dto);
+                // The order was successfully created and persisted — return 200 OK.
+                // The order's Status field conveys "Failed" so clients can inspect it.
+                return Ok(dto);
             }
 
             _logger.LogInformation("Order {OrderId} completed with status {Status}", order.Id, order.Status);
@@ -105,6 +118,29 @@ public class FactoryController : ControllerBase
             return NotFound();
 
         return Ok(MapToDto(order));
+    }
+
+    /// <summary>
+    /// Delete an order. Only orders with "Failed" or "Delivered" status can be deleted.
+    /// </summary>
+    [HttpDelete("{id:guid}")]
+    public async Task<ActionResult> Delete(Guid id)
+    {
+        var order = await _orderRepository.GetByIdAsync(id);
+        if (order is null)
+            return NotFound();
+
+        if (order.Status != nameof(OrderStatus.Failed) && order.Status != nameof(OrderStatus.Delivered))
+        {
+            return Conflict(new { error = $"Cannot delete order with status '{order.Status}'. Only 'Failed' or 'Delivered' orders can be deleted." });
+        }
+
+        var deleted = await _orderRepository.DeleteAsync(id);
+        if (!deleted)
+            return NotFound();
+
+        _logger.LogInformation("Deleted order {OrderId}", id);
+        return NoContent();
     }
 
     /// <summary>

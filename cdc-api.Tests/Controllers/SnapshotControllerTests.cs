@@ -89,6 +89,107 @@ public class SnapshotControllerTests : IClassFixture<WebApplicationFactory<Progr
     }
 
     [Fact]
+    public async Task CreateSnapshot_FailedResult_ReturnsBadRequest()
+    {
+        // Arrange — use a separate factory that returns failure for a specific DB name
+        var failClient = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                var mockSnapshotManager = new Mock<ISnapshotManager>();
+                mockSnapshotManager.Setup(x => x.CreateSnapshotAsync("FailDB", It.IsAny<string>()))
+                    .ReturnsAsync(new SnapshotResult { Success = false, Message = "Cannot open database \"CdcTestDB\" requested by the login. The login failed." });
+                mockSnapshotManager.Setup(x => x.RestoreSnapshotAsync(It.IsAny<string>(), It.IsAny<string>()))
+                    .ReturnsAsync(new SnapshotResult { Success = true, Message = "Snapshot restored successfully" });
+                mockSnapshotManager.Setup(x => x.DropSnapshotAsync(It.IsAny<string>()))
+                    .ReturnsAsync(new SnapshotResult { Success = true, Message = "Snapshot deleted successfully" });
+                mockSnapshotManager.Setup(x => x.ListSnapshotsAsync(It.IsAny<string>()))
+                    .ReturnsAsync(new List<SnapshotInfo>());
+                services.AddSingleton(mockSnapshotManager.Object);
+            });
+        }).CreateClient();
+
+        var request = new CreateSnapshotRequest
+        {
+            DatabaseName = "FailDB",
+            SnapshotName = "TestSnapshot"
+        };
+
+        // Act
+        var response = await failClient.PostAsJsonAsync("/api/snapshot", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().NotContain("CdcTestDB");
+        content.Should().NotContain("login failed");
+    }
+
+    [Fact]
+    public async Task RestoreSnapshot_FailedResult_ReturnsBadRequest()
+    {
+        // Arrange — use a separate factory that returns failure for restore
+        var failClient = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                var mockSnapshotManager = new Mock<ISnapshotManager>();
+                mockSnapshotManager.Setup(x => x.CreateSnapshotAsync(It.IsAny<string>(), It.IsAny<string>()))
+                    .ReturnsAsync(new SnapshotResult { Success = true, Message = "Snapshot created successfully" });
+                mockSnapshotManager.Setup(x => x.RestoreSnapshotAsync("NonexistentSnapshot", It.IsAny<string>()))
+                    .ReturnsAsync(new SnapshotResult { Success = false, Message = "Snapshot 'NonexistentSnapshot' not found" });
+                mockSnapshotManager.Setup(x => x.DropSnapshotAsync(It.IsAny<string>()))
+                    .ReturnsAsync(new SnapshotResult { Success = true, Message = "Snapshot deleted successfully" });
+                mockSnapshotManager.Setup(x => x.ListSnapshotsAsync(It.IsAny<string>()))
+                    .ReturnsAsync(new List<SnapshotInfo>());
+                services.AddSingleton(mockSnapshotManager.Object);
+            });
+        }).CreateClient();
+
+        var request = new RestoreSnapshotRequest
+        {
+            DatabaseName = "TestDB",
+            SnapshotName = "NonexistentSnapshot"
+        };
+
+        // Act
+        var response = await failClient.PostAsJsonAsync("/api/snapshot/restore", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().NotContain("not found");
+    }
+
+    [Fact]
+    public async Task DeleteSnapshot_FailedResult_ReturnsNotFound()
+    {
+        // Arrange — use a separate factory that returns failure for deletion
+        var failClient = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                var mockSnapshotManager = new Mock<ISnapshotManager>();
+                mockSnapshotManager.Setup(x => x.CreateSnapshotAsync(It.IsAny<string>(), It.IsAny<string>()))
+                    .ReturnsAsync(new SnapshotResult { Success = true, Message = "Snapshot created successfully" });
+                mockSnapshotManager.Setup(x => x.RestoreSnapshotAsync(It.IsAny<string>(), It.IsAny<string>()))
+                    .ReturnsAsync(new SnapshotResult { Success = true, Message = "Snapshot restored successfully" });
+                mockSnapshotManager.Setup(x => x.DropSnapshotAsync("NonexistentSnapshot"))
+                    .ReturnsAsync(new SnapshotResult { Success = false, Message = "Snapshot not found" });
+                mockSnapshotManager.Setup(x => x.ListSnapshotsAsync(It.IsAny<string>()))
+                    .ReturnsAsync(new List<SnapshotInfo>());
+                services.AddSingleton(mockSnapshotManager.Object);
+            });
+        }).CreateClient();
+
+        // Act
+        var response = await failClient.DeleteAsync("/api/snapshot/NonexistentSnapshot");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task RestoreSnapshot_ValidRequest_ReturnsOk()
     {
         // Arrange
@@ -103,6 +204,23 @@ public class SnapshotControllerTests : IClassFixture<WebApplicationFactory<Progr
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task RestoreSnapshot_InvalidRequest_ReturnsBadRequest()
+    {
+        // Arrange
+        var request = new RestoreSnapshotRequest
+        {
+            DatabaseName = "",
+            SnapshotName = ""
+        };
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/api/snapshot/restore", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]

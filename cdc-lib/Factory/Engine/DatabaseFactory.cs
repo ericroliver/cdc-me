@@ -126,6 +126,7 @@ public class DatabaseFactory : IDatabaseFactory
             order.Status = nameof(OrderStatus.Failed);
             order.ErrorMessage = ex.Message;
             order.CompletedAt = DateTime.UtcNow;
+            order.ScriptGroupIds = request.ScriptGroupIds;
             return order;
         }
         catch (Exception ex)
@@ -137,6 +138,7 @@ public class DatabaseFactory : IDatabaseFactory
             order.Status = nameof(OrderStatus.Failed);
             order.ErrorMessage = ex.Message;
             order.CompletedAt = DateTime.UtcNow;
+            order.ScriptGroupIds = request.ScriptGroupIds;
             return order;
         }
     }

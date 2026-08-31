@@ -4,6 +4,7 @@ using System.Data;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Npgsql;
+using Softbase.Cdc.Factory.Engine;
 using Softbase.Cdc.Factory.Interfaces;
 using Softbase.Cdc.Factory.Models;
 
@@ -217,13 +218,24 @@ public class ConnectionRegistry : IConnectionRegistry
         await using var command = new NpgsqlCommand(sql, connection);
         command.Parameters.AddWithValue("@id", id);
 
-        var rowsAffected = await command.ExecuteNonQueryAsync();
-        if (rowsAffected > 0)
+        try
         {
-            _logger.LogInformation("Deleted connection (Id={Id})", id);
-        }
+            var rowsAffected = await command.ExecuteNonQueryAsync();
+            if (rowsAffected > 0)
+            {
+                _logger.LogInformation("Deleted connection (Id={Id})", id);
+            }
 
-        return rowsAffected > 0;
+            return rowsAffected > 0;
+        }
+        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.ForeignKeyViolation)
+        {
+            _logger.LogWarning("Cannot delete connection {Id}: referenced by existing orders", id);
+            throw new ReferencedByOrdersException(
+                "connection",
+                "Cannot delete connection referenced by existing orders.",
+                ex);
+        }
     }
 
     public async Task<bool> TestConnectionAsync(Guid id)

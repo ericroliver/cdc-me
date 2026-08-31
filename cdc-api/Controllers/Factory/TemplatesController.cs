@@ -1,5 +1,6 @@
 using CdcModels.Factory;
 using Microsoft.AspNetCore.Mvc;
+using Softbase.Cdc.Factory.Engine;
 using Softbase.Cdc.Factory.Interfaces;
 using Softbase.Cdc.Factory.Models;
 
@@ -108,11 +109,18 @@ public class TemplatesController : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<ActionResult> Delete(Guid id)
     {
-        var deleted = await _templateRepository.DeleteAsync(id);
-        if (!deleted)
-            return NotFound();
+        try
+        {
+            var deleted = await _templateRepository.DeleteAsync(id);
+            if (!deleted)
+                return NotFound();
 
-        return NoContent();
+            return NoContent();
+        }
+        catch (ReferencedByOrdersException)
+        {
+            return Conflict(new { error = "Cannot delete template referenced by existing orders." });
+        }
     }
 
     [HttpPost("{id:guid}/verify")]

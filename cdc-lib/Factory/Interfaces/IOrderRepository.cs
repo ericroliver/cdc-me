@@ -45,4 +45,9 @@ public interface IOrderRepository
     /// Lists all orders.
     /// </summary>
     Task<IReadOnlyList<Order>> ListAsync();
+
+    /// <summary>
+    /// Deletes an order by ID, including its parameters and script group associations.
+    /// </summary>
+    Task<bool> DeleteAsync(Guid id);
 }
