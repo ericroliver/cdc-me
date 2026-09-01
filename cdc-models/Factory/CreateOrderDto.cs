@@ -12,6 +12,12 @@ public class CreateOrderDto
 
     public Guid? TargetConnectionId { get; set; }
 
+    /// <summary>
+    /// Optional: reference a connection by name instead of ID.
+    /// Used only when <see cref="TargetConnectionId"/> is not specified.
+    /// </summary>
+    public string? TargetConnectionName { get; set; }
+
     [Required]
     public string TargetDatabaseName { get; set; } = string.Empty;
 

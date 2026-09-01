@@ -1,7 +1,7 @@
+using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Mvc;
 using Softbase.Cdc.Models;
 using Softbase.Cdc.Trace;
-using System.Collections.Concurrent;
 
 namespace cdc_api.Controllers;
 

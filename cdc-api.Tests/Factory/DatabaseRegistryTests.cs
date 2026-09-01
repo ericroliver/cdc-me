@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using cdc_api.Controllers.Factory;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -7,7 +8,6 @@ using Moq;
 using Softbase.Cdc.Factory.Interfaces;
 using Softbase.Cdc.Factory.Models;
 using Softbase.Cdc.Factory.Repositories;
-using cdc_api.Controllers.Factory;
 using Xunit;
 
 namespace cdc_api.Tests.Factory;

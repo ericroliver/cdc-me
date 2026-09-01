@@ -13,6 +13,7 @@ namespace Softbase.Cdc.Factory.Interfaces;
 public interface IConnectionRegistry
 {
     Task<Connection?> GetByIdAsync(Guid id);
+    Task<Connection?> GetByNameAsync(string name);
     Task<Connection?> GetDefaultAsync();
     Task<IReadOnlyList<Connection>> ListAsync();
     Task<Connection> CreateAsync(CreateConnectionRequest request);
