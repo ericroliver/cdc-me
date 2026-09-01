@@ -17,12 +17,12 @@ public class DependencyValidatorTests
         string name = "group",
         int layer = 0,
         params Guid[] deps) => new()
-    {
-        Id = id ?? Guid.NewGuid(),
-        Name = name,
-        Layer = layer,
-        Dependencies = deps
-    };
+        {
+            Id = id ?? Guid.NewGuid(),
+            Name = name,
+            Layer = layer,
+            Dependencies = deps
+        };
 
     [Fact]
     public void Validate_NoDependencies_ReturnsValid()

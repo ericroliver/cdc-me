@@ -12,6 +12,7 @@ public class OrderRequest
 {
     public Guid TemplateId { get; set; }
     public Guid? TargetConnectionId { get; set; }
+    public string? TargetConnectionName { get; set; }
     public string TargetDatabaseName { get; set; } = string.Empty;
     public IReadOnlyList<Guid> ScriptGroupIds { get; set; } = Array.Empty<Guid>();
     public IReadOnlyDictionary<string, object?>? Parameters { get; set; }

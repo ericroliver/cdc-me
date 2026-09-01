@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using Softbase.Cdc.Factory.Executors;
 using Softbase.Cdc.Factory.Interfaces;
 using Softbase.Cdc.Factory.Models;
-using Softbase.Cdc.Factory.Executors;
 using Xunit;
 
 namespace cdc_api.Tests.Factory;

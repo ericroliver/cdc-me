@@ -63,7 +63,7 @@ services:
       - cdc-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $${MSSQL_SA_PASSWORD} -Q 'SELECT 1' || exit 1"]
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P $${MSSQL_SA_PASSWORD} -C -Q 'SELECT 1' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -82,7 +82,7 @@ services:
       - POSTGRES_INITDB_ARGS=--encoding=UTF8
     volumes:
       - postgres-dev-data:/var/lib/postgresql/data
-      - ./scripts/create-trace-database-postgresql.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./scripts/docker-init-postgresql.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
       - ./backups:/backups
     networks:
       - cdc-network

@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using cdc_api.Controllers.Factory;
 using CdcModels.Factory;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using cdc_api.Controllers.Factory;
 using Softbase.Cdc.Factory.Interfaces;
 using Softbase.Cdc.Factory.Models;
 using Xunit;
@@ -34,12 +34,25 @@ public class FactoryControllerTests
                 CreatedAt = DateTime.UtcNow
             });
 
-        // Default: connection exists
+        // Default: connection exists (by ID)
         _connectionRegistryMock.Setup(r => r.GetByIdAsync(It.IsAny<Guid>()))
             .ReturnsAsync((Guid id) => new Connection
             {
                 Id = id,
                 Name = "Test Connection",
+                Platform = "SqlServer",
+                Host = "localhost",
+                Port = 1433,
+                ConnectionString = "Server=localhost;Database=test;Trusted_Connection=True;",
+                CreatedAt = DateTime.UtcNow
+            });
+
+        // Default: connection exists (by name)
+        _connectionRegistryMock.Setup(r => r.GetByNameAsync(It.IsAny<string>()))
+            .ReturnsAsync((string name) => new Connection
+            {
+                Id = Guid.NewGuid(),
+                Name = name,
                 Platform = "SqlServer",
                 Host = "localhost",
                 Port = 1433,
@@ -58,18 +71,18 @@ public class FactoryControllerTests
     private static Order MakeOrder(
         string status = nameof(OrderStatus.Delivered),
         Guid? id = null) => new()
-    {
-        Id = id ?? Guid.NewGuid(),
-        TemplateId = Guid.NewGuid(),
-        TargetConnectionId = Guid.NewGuid(),
-        TargetDatabaseName = "acme_test_db",
-        Status = status,
-        CreatedAt = DateTime.UtcNow,
-        StartedAt = DateTime.UtcNow,
-        CompletedAt = status == nameof(OrderStatus.Delivered) ? DateTime.UtcNow : null,
-        ScriptGroupIds = new[] { Guid.NewGuid() },
-        Parameters = new Dictionary<string, object?> { ["key"] = "value" }
-    };
+        {
+            Id = id ?? Guid.NewGuid(),
+            TemplateId = Guid.NewGuid(),
+            TargetConnectionId = Guid.NewGuid(),
+            TargetDatabaseName = "acme_test_db",
+            Status = status,
+            CreatedAt = DateTime.UtcNow,
+            StartedAt = DateTime.UtcNow,
+            CompletedAt = status == nameof(OrderStatus.Delivered) ? DateTime.UtcNow : null,
+            ScriptGroupIds = new[] { Guid.NewGuid() },
+            Parameters = new Dictionary<string, object?> { ["key"] = "value" }
+        };
 
     private static CreateOrderDto MakeCreateDto() => new()
     {
@@ -152,6 +165,7 @@ public class FactoryControllerTests
         capturedRequest.Should().NotBeNull();
         capturedRequest!.TemplateId.Should().Be(dto.TemplateId);
         capturedRequest.TargetConnectionId.Should().Be(dto.TargetConnectionId);
+        capturedRequest.TargetConnectionName.Should().Be(dto.TargetConnectionName);
         capturedRequest.TargetDatabaseName.Should().Be(dto.TargetDatabaseName);
         capturedRequest.ScriptGroupIds.Should().BeEquivalentTo(dto.ScriptGroupIds);
         capturedRequest.ParameterFilePath.Should().Be("/params.json");
@@ -201,12 +215,62 @@ public class FactoryControllerTests
     {
         var dto = MakeCreateDto();
         dto.TargetConnectionId = null;
+        dto.TargetConnectionName = null;
         _factoryMock.Setup(f => f.OrderAsync(It.IsAny<OrderRequest>()))
             .ReturnsAsync(MakeOrder());
 
         await _controller.Create(dto);
 
         _connectionRegistryMock.Verify(r => r.GetByIdAsync(It.IsAny<Guid>()), Times.Never);
+        _connectionRegistryMock.Verify(r => r.GetByNameAsync(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Create_ValidatesConnectionByName_WhenIdNotSpecified()
+    {
+        var dto = MakeCreateDto();
+        dto.TargetConnectionId = null;
+        dto.TargetConnectionName = "field-sqlserver";
+        _factoryMock.Setup(f => f.OrderAsync(It.IsAny<OrderRequest>()))
+            .ReturnsAsync(MakeOrder());
+
+        await _controller.Create(dto);
+
+        _connectionRegistryMock.Verify(r => r.GetByNameAsync("field-sqlserver"), Times.Once);
+        _connectionRegistryMock.Verify(r => r.GetByIdAsync(It.IsAny<Guid>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Create_ReturnsNotFound_WhenConnectionNameDoesNotExist()
+    {
+        var dto = MakeCreateDto();
+        dto.TargetConnectionId = null;
+        dto.TargetConnectionName = "missing-connection";
+        _connectionRegistryMock.Setup(r => r.GetByNameAsync("missing-connection"))
+            .ReturnsAsync((Connection?)null);
+
+        var result = await _controller.Create(dto);
+
+        var notFound = result.Result.Should().BeOfType<NotFoundObjectResult>().Subject;
+        notFound.Value.Should().BeEquivalentTo(new { error = "Connection not found with name: missing-connection" });
+        _factoryMock.Verify(f => f.OrderAsync(It.IsAny<OrderRequest>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Create_PassesConnectionNameToFactory()
+    {
+        var dto = MakeCreateDto();
+        dto.TargetConnectionId = null;
+        dto.TargetConnectionName = "field-sqlserver";
+        OrderRequest? capturedRequest = null;
+        _factoryMock.Setup(f => f.OrderAsync(It.IsAny<OrderRequest>()))
+            .Callback<OrderRequest>(r => capturedRequest = r)
+            .ReturnsAsync(MakeOrder());
+
+        await _controller.Create(dto);
+
+        capturedRequest.Should().NotBeNull();
+        capturedRequest!.TargetConnectionName.Should().Be("field-sqlserver");
     }
 
     // ───────────────────────────────────────────────────────────────

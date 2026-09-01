@@ -5,11 +5,11 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using ParamDict = System.Collections.Generic.IReadOnlyDictionary<string, object?>;
 using Softbase.Cdc.Factory.Engine;
 using Softbase.Cdc.Factory.Interfaces;
 using Softbase.Cdc.Factory.Models;
 using Xunit;
+using ParamDict = System.Collections.Generic.IReadOnlyDictionary<string, object?>;
 
 namespace cdc_api.Tests.Factory;
 
@@ -98,15 +98,17 @@ public class DatabaseFactoryTests
     private OrderRequest MakeRequest(
         Guid templateId,
         Guid? connectionId = null,
+        string? connectionName = null,
         Guid[]? scriptGroupIds = null,
         Dictionary<string, object?>? parameters = null) => new()
-    {
-        TemplateId = templateId,
-        TargetConnectionId = connectionId,
-        TargetDatabaseName = "acme_test_{date}",
-        ScriptGroupIds = scriptGroupIds ?? Array.Empty<Guid>(),
-        Parameters = parameters
-    };
+        {
+            TemplateId = templateId,
+            TargetConnectionId = connectionId,
+            TargetConnectionName = connectionName,
+            TargetDatabaseName = "acme_test_{date}",
+            ScriptGroupIds = scriptGroupIds ?? Array.Empty<Guid>(),
+            Parameters = parameters
+        };
 
     // ───────────────────────────────────────────────────────────────
     // Resolve Connection tests
@@ -167,6 +169,87 @@ public class DatabaseFactoryTests
         order.TargetConnectionId.Should().Be(conn.Id);
         _connectionRegistry.Verify(r => r.GetByIdAsync(conn.Id), Times.Once);
         _connectionRegistry.Verify(r => r.GetDefaultAsync(), Times.Never);
+    }
+
+    [Fact]
+    public async Task OrderAsync_ResolvesConnectionByName_WhenIdNotProvided()
+    {
+        var template = MakeTemplate();
+        var conn = MakeConnection();
+        conn.Name = "field-sqlserver";
+
+        _templateRepository.Setup(r => r.GetByIdAsync(template.Id)).ReturnsAsync(template);
+        _connectionRegistry.Setup(r => r.GetByNameAsync("field-sqlserver")).ReturnsAsync(conn);
+        _databaseProvider.Setup(p => p.RestoreBackupAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(SqlResult.Ok());
+
+        var request = MakeRequest(template.Id, connectionName: "field-sqlserver");
+
+        var order = await _factory.OrderAsync(request);
+
+        order.Status.Should().Be(nameof(OrderStatus.Delivered));
+        order.TargetConnectionId.Should().Be(conn.Id);
+        _connectionRegistry.Verify(r => r.GetByNameAsync("field-sqlserver"), Times.Once);
+        _connectionRegistry.Verify(r => r.GetDefaultAsync(), Times.Never);
+        _connectionRegistry.Verify(r => r.GetByIdAsync(It.IsAny<Guid>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task OrderAsync_FailsWhenConnectionNameNotFound()
+    {
+        var template = MakeTemplate();
+
+        _templateRepository.Setup(r => r.GetByIdAsync(template.Id)).ReturnsAsync(template);
+        _connectionRegistry.Setup(r => r.GetByNameAsync("missing")).ReturnsAsync((Connection?)null);
+
+        var request = MakeRequest(template.Id, connectionName: "missing");
+
+        var order = await _factory.OrderAsync(request);
+
+        order.Status.Should().Be(nameof(OrderStatus.Failed));
+        order.ErrorMessage.Should().Contain("Connection not found with name: missing");
+    }
+
+    [Fact]
+    public async Task OrderAsync_IdTakesPrecedenceOverName()
+    {
+        var template = MakeTemplate();
+        var connById = MakeConnection();
+        connById.Name = "by-id-connection";
+        var connByName = MakeConnection();
+        connByName.Name = "by-name-connection";
+
+        _templateRepository.Setup(r => r.GetByIdAsync(template.Id)).ReturnsAsync(template);
+        _connectionRegistry.Setup(r => r.GetByIdAsync(connById.Id)).ReturnsAsync(connById);
+        _connectionRegistry.Setup(r => r.GetByNameAsync("by-name-connection")).ReturnsAsync(connByName);
+        _databaseProvider.Setup(p => p.RestoreBackupAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(SqlResult.Ok());
+
+        var request = MakeRequest(template.Id, connectionId: connById.Id, connectionName: "by-name-connection");
+
+        var order = await _factory.OrderAsync(request);
+
+        order.Status.Should().Be(nameof(OrderStatus.Delivered));
+        order.TargetConnectionId.Should().Be(connById.Id);
+        _connectionRegistry.Verify(r => r.GetByIdAsync(connById.Id), Times.Once);
+        _connectionRegistry.Verify(r => r.GetByNameAsync(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task OrderAsync_FailsWhenNoConnectionIdNameOrDefault()
+    {
+        var template = MakeTemplate();
+
+        _templateRepository.Setup(r => r.GetByIdAsync(template.Id)).ReturnsAsync(template);
+        _connectionRegistry.Setup(r => r.GetDefaultAsync()).ReturnsAsync((Connection?)null);
+
+        var request = MakeRequest(template.Id);
+
+        var order = await _factory.OrderAsync(request);
+
+        order.Status.Should().Be(nameof(OrderStatus.Failed));
+        order.ErrorMessage.Should().Contain("No target connection specified");
+        order.ErrorMessage.Should().Contain("no default connection");
     }
 
     [Fact]
