@@ -48,6 +48,32 @@ public class ConnectionRegistry : IConnectionRegistry
         return MapConnection(reader);
     }
 
+    public async Task<Connection?> GetByNameAsync(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return null;
+
+        const string sql = """
+            SELECT id, name, platform, host, port, connection_string,
+                   description, is_default, created_at, updated_at
+            FROM factory_connections
+            WHERE name = @name
+            LIMIT 1
+            """;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        await using var command = new NpgsqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@name", name);
+
+        await using var reader = await command.ExecuteReaderAsync();
+        if (!await reader.ReadAsync())
+            return null;
+
+        return MapConnection(reader);
+    }
+
     public async Task<Connection?> GetDefaultAsync()
     {
         const string sql = """

@@ -62,7 +62,7 @@ public class DatabaseFactory : IDatabaseFactory
         {
             // Step 2: Resolve Connection
             await _orderRepository.UpdateStatusAsync(order.Id, OrderStatus.Resolving, startedAt: DateTime.UtcNow);
-            var connection = await ResolveConnectionAsync(request.TargetConnectionId);
+            var connection = await ResolveConnectionAsync(request.TargetConnectionId, request.TargetConnectionName);
             order.TargetConnectionId = connection.Id;
 
             // Step 3: Validate
@@ -143,8 +143,9 @@ public class DatabaseFactory : IDatabaseFactory
         }
     }
 
-    private async Task<Connection> ResolveConnectionAsync(Guid? targetConnectionId)
+    private async Task<Connection> ResolveConnectionAsync(Guid? targetConnectionId, string? targetConnectionName)
     {
+        // 1. Explicit connection ID takes precedence
         if (targetConnectionId.HasValue && targetConnectionId.Value != Guid.Empty)
         {
             var connection = await _connectionRegistry.GetByIdAsync(targetConnectionId.Value);
@@ -154,15 +155,30 @@ public class DatabaseFactory : IDatabaseFactory
                     $"Connection not found: {targetConnectionId.Value}");
             }
 
-            _logger.LogInformation("Resolved connection '{Name}' for order", connection.Name);
+            _logger.LogInformation("Resolved connection '{Name}' (Id={Id}) for order", connection.Name, connection.Id);
             return connection;
         }
 
+        // 2. Fall back to connection name if provided
+        if (!string.IsNullOrWhiteSpace(targetConnectionName))
+        {
+            var connection = await _connectionRegistry.GetByNameAsync(targetConnectionName);
+            if (connection is null)
+            {
+                throw new FactoryException("Resolving",
+                    $"Connection not found with name: {targetConnectionName}");
+            }
+
+            _logger.LogInformation("Resolved connection '{Name}' (Id={Id}) by name for order", connection.Name, connection.Id);
+            return connection;
+        }
+
+        // 3. Fall back to default connection
         var defaultConnection = await _connectionRegistry.GetDefaultAsync();
         if (defaultConnection is null)
         {
             throw new FactoryException("Resolving",
-                "No target connection specified and no default connection is set");
+                "No target connection specified (by ID or name) and no default connection is set");
         }
 
         _logger.LogInformation("Resolved default connection '{Name}' for order", defaultConnection.Name);

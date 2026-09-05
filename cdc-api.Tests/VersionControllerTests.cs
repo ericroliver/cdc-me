@@ -1,7 +1,7 @@
 using System;
 using System.Threading.Tasks;
-using CdcModels;
 using cdc_api.Controllers;
+using CdcModels;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Moq;

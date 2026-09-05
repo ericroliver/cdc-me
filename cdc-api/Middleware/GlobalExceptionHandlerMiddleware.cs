@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using Softbase.Cdc.Factory.Engine;
-using Microsoft.Data.SqlClient;
 
 namespace cdc_api.Middleware;
 

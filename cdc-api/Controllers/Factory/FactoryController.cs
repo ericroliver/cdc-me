@@ -61,6 +61,12 @@ public class FactoryController : ControllerBase
             if (connection is null)
                 return NotFound(new { error = $"Connection not found: {request.TargetConnectionId}" });
         }
+        else if (!string.IsNullOrWhiteSpace(request.TargetConnectionName))
+        {
+            var connection = await _connectionRegistry.GetByNameAsync(request.TargetConnectionName);
+            if (connection is null)
+                return NotFound(new { error = $"Connection not found with name: {request.TargetConnectionName}" });
+        }
 
         try
         {
@@ -68,6 +74,7 @@ public class FactoryController : ControllerBase
             {
                 TemplateId = request.TemplateId,
                 TargetConnectionId = request.TargetConnectionId,
+                TargetConnectionName = request.TargetConnectionName,
                 TargetDatabaseName = request.TargetDatabaseName,
                 ScriptGroupIds = request.ScriptGroupIds,
                 Parameters = request.Parameters,
