@@ -200,15 +200,28 @@ public class SqlServerScriptGroupRepository : IScriptGroupRepository
 
     public async Task<bool> DeleteGroupAsync(Guid id)
     {
+        // Incoming dependency edges (depends_on_id) cannot cascade on SQL Server:
+        // migration 004 allows only ONE cascade path to factory_script_groups
+        // (error 1785). Delete them explicitly; outgoing edges (group_id) cascade
+        // with the group. PostgreSQL cascades both -- the explicit delete is kept
+        // here too so both dialects behave identically.
+        const string incomingEdgesSql =
+            "DELETE FROM factory_script_group_dependencies WHERE depends_on_id = @id";
         const string sql = "DELETE FROM factory_script_groups WHERE id = @id";
 
         await using var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync();
+        await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync();
 
-        await using var command = new SqlCommand(sql, connection);
+        await using var incomingCommand = new SqlCommand(incomingEdgesSql, connection, transaction);
+        incomingCommand.Parameters.AddWithValue("@id", id);
+        await incomingCommand.ExecuteNonQueryAsync();
+
+        await using var command = new SqlCommand(sql, connection, transaction);
         command.Parameters.AddWithValue("@id", id);
 
         var rowsAffected = await command.ExecuteNonQueryAsync();
+        await transaction.CommitAsync();
         if (rowsAffected > 0)
             _logger.LogInformation("Deleted script group (Id={Id})", id);
 
