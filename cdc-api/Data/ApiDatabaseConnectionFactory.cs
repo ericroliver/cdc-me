@@ -7,14 +7,16 @@ namespace cdc_api.Data
     public class ApiDatabaseConnectionFactory : IDatabaseConnectionFactory
     {
         private readonly IDatabaseConnectionFactory _innerFactory;
+        private readonly ILogger<ApiDatabaseConnectionFactory> _logger;
 
         public ApiDatabaseConnectionFactory(IConfiguration configuration, ILogger<ApiDatabaseConnectionFactory> logger)
         {
+            _logger = logger;
             // Extract connection strings from configuration
             var connectionStrings = new Dictionary<DatabaseRole, string>
             {
-                [DatabaseRole.TestDatabase] = GetConnectionString(configuration, "TEST_DB_CONNECTION"),
-                [DatabaseRole.CdcMeDatabase] = GetConnectionString(configuration, "CDCME_DB_CONNECTION")
+                [DatabaseRole.TestDatabase] = ResolveConnectionString(configuration, "TEST_DB_CONNECTION"),
+                [DatabaseRole.CdcMeDatabase] = ResolveConnectionString(configuration, "CDCME_DB_CONNECTION")
             };
 
             // Extract providers from configuration
@@ -31,39 +33,45 @@ namespace cdc_api.Data
             _innerFactory = new DatabaseConnectionFactory(connectionStrings, providers, factoryLogger);
         }
 
-        private static string GetConnectionString(IConfiguration configuration, string key)
+        // One log line per key naming the source that actually wins. Precedence:
+        // ConnectionStrings section (covers appsettings.json AND any
+        // ConnectionStrings__{KEY} env override) > flat configuration key
+        // (TEST_DB_CONNECTION-style env var mapped into the config tree) > raw
+        // process environment variable.
+        private string ResolveConnectionString(IConfiguration configuration, string key)
         {
-            // Debug logging
-            Console.WriteLine($"[ApiDatabaseConnectionFactory] Looking for key: {key}");
-
-            // Try ConnectionStrings section first
-            var fromConnectionStrings = configuration.GetConnectionString(key);
-            Console.WriteLine($"[ApiDatabaseConnectionFactory] From ConnectionStrings section: {(fromConnectionStrings != null ? "FOUND" : "NOT FOUND")}");
-
-            // Then try direct configuration
-            var fromDirectConfig = configuration[key];
-            Console.WriteLine($"[ApiDatabaseConnectionFactory] From direct config: {(fromDirectConfig != null ? "FOUND" : "NOT FOUND")}");
-
-            // Check environment variable directly
+            var fromSection = configuration.GetConnectionString(key);
+            var fromFlatConfig = configuration[key];
             var fromEnv = Environment.GetEnvironmentVariable(key);
-            Console.WriteLine($"[ApiDatabaseConnectionFactory] From Environment.GetEnvironmentVariable: {(fromEnv != null ? "FOUND" : "NOT FOUND")}");
 
-            var connectionString = fromConnectionStrings ?? fromDirectConfig;
+            var connectionString = fromSection ?? fromFlatConfig;
+            var source = fromSection != null
+                ? "ConnectionStrings section (appsettings.json or ConnectionStrings__ env override)"
+                : "flat configuration key";
 
             if (string.IsNullOrEmpty(connectionString))
             {
-                // If not in configuration, try environment variable directly
                 connectionString = fromEnv;
-                if (!string.IsNullOrEmpty(connectionString))
+                source = "raw process environment variable";
+                if (string.IsNullOrEmpty(connectionString))
                 {
-                    Console.WriteLine($"[ApiDatabaseConnectionFactory] Using environment variable directly for {key}");
-                    return connectionString;
+                    _logger.LogWarning("{Key} not found in ConnectionStrings section, flat configuration, or environment", key);
+                    throw new InvalidOperationException($"Connection string for {key} not found in configuration");
                 }
-
-                throw new InvalidOperationException($"Connection string for {key} not found in configuration");
             }
 
-            return connectionString;
+            if (string.Equals(connectionString, "your_connection_string_here", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning(
+                    "{Key} is still the appsettings.json placeholder - connections will fail. Set ConnectionStrings__{KeyEnv} (or {KeyFlat}) in the environment",
+                    key, key, key);
+            }
+            else
+            {
+                _logger.LogInformation("{Key} resolved from {Source}", key, source);
+            }
+
+            return connectionString!;
         }
 
         private static DatabaseProvider ParseProvider(string? providerString, DatabaseProvider defaultProvider)
