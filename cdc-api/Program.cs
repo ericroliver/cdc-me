@@ -13,6 +13,7 @@ using Softbase.Cdc.Factory.Executors;
 using Softbase.Cdc.Factory.Interfaces;
 using Softbase.Cdc.Factory.Providers;
 using Softbase.Cdc.Factory.Repositories;
+using Softbase.Cdc.Factory.Repositories.SqlServer;
 using Softbase.Cdc.Models;
 using Softbase.Cdc.Trace;
 
@@ -119,8 +120,9 @@ builder.Services.AddSingleton<IFactorySchemaRunner>(serviceProvider =>
 {
     var factory = serviceProvider.GetRequiredService<IDatabaseConnectionFactory>();
     var connectionString = factory.GetConnectionString(DatabaseRole.CdcMeDatabase);
+    var provider = factory.GetProvider(DatabaseRole.CdcMeDatabase);
     var logger = serviceProvider.GetRequiredService<ILogger<FactorySchemaRunner>>();
-    return new FactorySchemaRunner(connectionString, logger);
+    return new FactorySchemaRunner(connectionString, provider, logger);
 });
 
 // Register Factory Services
@@ -147,41 +149,81 @@ builder.Services.AddScoped<IConnectionRegistry>(serviceProvider =>
 {
     var factory = serviceProvider.GetRequiredService<IDatabaseConnectionFactory>();
     var connectionString = factory.GetConnectionString(DatabaseRole.CdcMeDatabase);
-    var logger = serviceProvider.GetRequiredService<ILogger<ConnectionRegistry>>();
-    return new ConnectionRegistry(connectionString, logger);
+    var provider = factory.GetProvider(DatabaseRole.CdcMeDatabase);
+
+    if (provider == DatabaseProvider.SqlServer)
+    {
+        var logger = serviceProvider.GetRequiredService<ILogger<SqlServerConnectionRegistry>>();
+        return new SqlServerConnectionRegistry(connectionString, logger);
+    }
+
+    var pgLogger = serviceProvider.GetRequiredService<ILogger<ConnectionRegistry>>();
+    return new ConnectionRegistry(connectionString, pgLogger);
 });
 
 builder.Services.AddScoped<IDatabaseTemplateRepository>(serviceProvider =>
 {
     var factory = serviceProvider.GetRequiredService<IDatabaseConnectionFactory>();
     var connectionString = factory.GetConnectionString(DatabaseRole.CdcMeDatabase);
+    var provider = factory.GetProvider(DatabaseRole.CdcMeDatabase);
     var storage = serviceProvider.GetRequiredService<ITemplateStorageProvider>();
-    var logger = serviceProvider.GetRequiredService<ILogger<DatabaseTemplateRepository>>();
-    return new DatabaseTemplateRepository(connectionString, storage, logger);
+
+    if (provider == DatabaseProvider.SqlServer)
+    {
+        var logger = serviceProvider.GetRequiredService<ILogger<SqlServerDatabaseTemplateRepository>>();
+        return new SqlServerDatabaseTemplateRepository(connectionString, storage, logger);
+    }
+
+    var pgLogger = serviceProvider.GetRequiredService<ILogger<DatabaseTemplateRepository>>();
+    return new DatabaseTemplateRepository(connectionString, storage, pgLogger);
 });
 
 builder.Services.AddScoped<IScriptGroupRepository>(serviceProvider =>
 {
     var factory = serviceProvider.GetRequiredService<IDatabaseConnectionFactory>();
     var connectionString = factory.GetConnectionString(DatabaseRole.CdcMeDatabase);
-    var logger = serviceProvider.GetRequiredService<ILogger<ScriptGroupRepository>>();
-    return new ScriptGroupRepository(connectionString, logger);
+    var provider = factory.GetProvider(DatabaseRole.CdcMeDatabase);
+
+    if (provider == DatabaseProvider.SqlServer)
+    {
+        var logger = serviceProvider.GetRequiredService<ILogger<SqlServerScriptGroupRepository>>();
+        return new SqlServerScriptGroupRepository(connectionString, logger);
+    }
+
+    var pgLogger = serviceProvider.GetRequiredService<ILogger<ScriptGroupRepository>>();
+    return new ScriptGroupRepository(connectionString, pgLogger);
 });
 
 builder.Services.AddScoped<IScriptLibrary>(serviceProvider =>
 {
     var factory = serviceProvider.GetRequiredService<IDatabaseConnectionFactory>();
     var connectionString = factory.GetConnectionString(DatabaseRole.CdcMeDatabase);
-    var logger = serviceProvider.GetRequiredService<ILogger<ScriptLibrary>>();
-    return new ScriptLibrary(connectionString, logger);
+    var provider = factory.GetProvider(DatabaseRole.CdcMeDatabase);
+
+    if (provider == DatabaseProvider.SqlServer)
+    {
+        var logger = serviceProvider.GetRequiredService<ILogger<SqlServerScriptLibrary>>();
+        return new SqlServerScriptLibrary(connectionString, logger);
+    }
+
+    var pgLogger = serviceProvider.GetRequiredService<ILogger<ScriptLibrary>>();
+    return new ScriptLibrary(connectionString, pgLogger);
 });
 
 builder.Services.AddScoped<IDatabaseRegistry>(serviceProvider =>
 {
     var factory = serviceProvider.GetRequiredService<IDatabaseConnectionFactory>();
     var connectionString = factory.GetConnectionString(DatabaseRole.CdcMeDatabase);
-    var logger = serviceProvider.GetRequiredService<ILogger<DatabaseRegistry>>();
-    return new DatabaseRegistry(connectionString, logger);
+    var provider = factory.GetProvider(DatabaseRole.CdcMeDatabase);
+
+    if (provider == DatabaseProvider.SqlServer)
+    {
+        var logger = serviceProvider.GetRequiredService<ILogger<SqlServerDatabaseRegistry>>();
+        return new SqlServerDatabaseRegistry(connectionString, logger);
+    }
+
+    var pgLogger = serviceProvider.GetRequiredService<ILogger<DatabaseRegistry>>();
+    return new DatabaseRegistry(connectionString, pgLogger);
 });
 
 builder.Services.AddScoped<IDatabaseProvider, SqlServerDatabaseProvider>();
@@ -194,8 +236,16 @@ builder.Services.AddScoped<IOrderRepository>(serviceProvider =>
 {
     var factory = serviceProvider.GetRequiredService<IDatabaseConnectionFactory>();
     var connectionString = factory.GetConnectionString(DatabaseRole.CdcMeDatabase);
-    var logger = serviceProvider.GetRequiredService<ILogger<OrderRepository>>();
-    return new OrderRepository(connectionString, logger);
+    var provider = factory.GetProvider(DatabaseRole.CdcMeDatabase);
+
+    if (provider == DatabaseProvider.SqlServer)
+    {
+        var logger = serviceProvider.GetRequiredService<ILogger<SqlServerOrderRepository>>();
+        return new SqlServerOrderRepository(connectionString, logger);
+    }
+
+    var pgLogger = serviceProvider.GetRequiredService<ILogger<OrderRepository>>();
+    return new OrderRepository(connectionString, pgLogger);
 });
 
 builder.Services.AddScoped<IDatabaseFactory, DatabaseFactory>();

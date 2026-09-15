@@ -38,11 +38,13 @@
     <PackageReference Include="Npgsql" Version="10.0.3" />
     <PackageReference Include="dbup-core" Version="6.1.1" />
     <PackageReference Include="dbup-postgresql" Version="7.0.1" />
+    <PackageReference Include="dbup-sqlserver" Version="7.1.0" />
     <PackageReference Include="YamlDotNet" Version="16.3.0" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- Factory schema migration SQL scripts — embedded as resources for DbUp -->
     <EmbeddedResource Include="Factory\Migrations\Factory\*.sql" />
+    <EmbeddedResource Include="Factory\Migrations\Factory\SqlServer\*.sql" />
   </ItemGroup>
 </Project>

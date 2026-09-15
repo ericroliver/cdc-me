@@ -1,25 +1,24 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
-using Npgsql;
 using Softbase.Cdc.Factory.Interfaces;
 using Softbase.Cdc.Factory.Models;
 
-namespace Softbase.Cdc.Factory.Repositories;
+namespace Softbase.Cdc.Factory.Repositories.SqlServer;
 
 /// <summary>
-/// PostgreSQL-backed repository for script groups.
+/// SQL Server-backed repository for script groups.
 /// Manages both factory_script_groups and factory_script_group_dependencies tables.
 /// Dependencies are managed as a full-replace on create/update.
 /// </summary>
-public class ScriptGroupRepository : IScriptGroupRepository
+public class SqlServerScriptGroupRepository : IScriptGroupRepository
 {
     private readonly string _connectionString;
-    private readonly ILogger<ScriptGroupRepository> _logger;
+    private readonly ILogger<SqlServerScriptGroupRepository> _logger;
 
-    public ScriptGroupRepository(string connectionString, ILogger<ScriptGroupRepository> logger)
+    public SqlServerScriptGroupRepository(string connectionString, ILogger<SqlServerScriptGroupRepository> logger)
     {
         _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -28,15 +27,15 @@ public class ScriptGroupRepository : IScriptGroupRepository
     public async Task<ScriptGroup?> GetGroupAsync(Guid id)
     {
         const string sql = """
-            SELECT id, name, description, layer, "order", created_at, updated_at
+            SELECT id, name, description, layer, [order], created_at, updated_at
             FROM factory_script_groups
             WHERE id = @id
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync();
 
-        await using var command = new NpgsqlCommand(sql, connection);
+        await using var command = new SqlCommand(sql, connection);
         command.Parameters.AddWithValue("@id", id);
 
         await using var reader = await command.ExecuteReaderAsync();
@@ -47,7 +46,7 @@ public class ScriptGroupRepository : IScriptGroupRepository
         await reader.CloseAsync();
 
         // Load dependencies
-        group.Dependencies = await LoadDependenciesAsync(connection, id);
+        group.Dependencies = await LoadDependenciesAsync(connection, null, id);
 
         return group;
     }
@@ -55,19 +54,19 @@ public class ScriptGroupRepository : IScriptGroupRepository
     public async Task<IReadOnlyList<ScriptGroup>> ListGroupsAsync(int? layer = null)
     {
         var sql = """
-            SELECT id, name, description, layer, "order", created_at, updated_at
+            SELECT id, name, description, layer, [order], created_at, updated_at
             FROM factory_script_groups
             """;
 
         if (layer.HasValue)
             sql += " WHERE layer = @layer";
 
-        sql += " ORDER BY layer, \"order\"";
+        sql += " ORDER BY layer, [order]";
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync();
 
-        await using var command = new NpgsqlCommand(sql, connection);
+        await using var command = new SqlCommand(sql, connection);
         if (layer.HasValue)
             command.Parameters.AddWithValue("@layer", layer.Value);
 
@@ -82,7 +81,7 @@ public class ScriptGroupRepository : IScriptGroupRepository
         // Load dependencies for each group
         foreach (var group in groups)
         {
-            group.Dependencies = await LoadDependenciesAsync(connection, group.Id);
+            group.Dependencies = await LoadDependenciesAsync(connection, null, group.Id);
         }
 
         return groups;
@@ -95,19 +94,20 @@ public class ScriptGroupRepository : IScriptGroupRepository
 
         const string insertSql = """
             INSERT INTO factory_script_groups
-                (name, description, layer, "order")
+                (name, description, layer, [order])
+            OUTPUT inserted.id, inserted.name, inserted.description, inserted.layer,
+                   inserted.[order], inserted.created_at, inserted.updated_at
             VALUES
                 (@name, @description, @layer, @order)
-            RETURNING id, name, description, layer, "order", created_at, updated_at
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync();
-        await using var transaction = await connection.BeginTransactionAsync();
+        await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync();
 
         try
         {
-            await using var command = new NpgsqlCommand(insertSql, connection, transaction);
+            await using var command = new SqlCommand(insertSql, connection, transaction);
             command.Parameters.AddWithValue("@name", request.Name);
             command.Parameters.AddWithValue("@description", (object?)request.Description ?? DBNull.Value);
             command.Parameters.AddWithValue("@layer", request.Layer);
@@ -144,19 +144,20 @@ public class ScriptGroupRepository : IScriptGroupRepository
             SET name = COALESCE(@name, name),
                 description = COALESCE(@description, description),
                 layer = COALESCE(@layer, layer),
-                "order" = COALESCE(@order, "order"),
-                updated_at = NOW()
+                [order] = COALESCE(@order, [order]),
+                updated_at = SYSUTCDATETIME()
+            OUTPUT inserted.id, inserted.name, inserted.description, inserted.layer,
+                   inserted.[order], inserted.created_at, inserted.updated_at
             WHERE id = @id
-            RETURNING id, name, description, layer, "order", created_at, updated_at
             """;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync();
-        await using var transaction = await connection.BeginTransactionAsync();
+        await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync();
 
         try
         {
-            await using var command = new NpgsqlCommand(updateSql, connection, transaction);
+            await using var command = new SqlCommand(updateSql, connection, transaction);
             command.Parameters.AddWithValue("@id", id);
             command.Parameters.AddWithValue("@name", (object?)request.Name ?? DBNull.Value);
             command.Parameters.AddWithValue("@description", (object?)request.Description ?? DBNull.Value);
@@ -199,23 +200,24 @@ public class ScriptGroupRepository : IScriptGroupRepository
 
     public async Task<bool> DeleteGroupAsync(Guid id)
     {
-        // PostgreSQL cascades both FK edges of factory_script_group_dependencies,
-        // but the incoming edges (depends_on_id) are deleted explicitly anyway so
-        // both dialects behave identically (SQL Server cannot cascade that FK --
-        // migration 004, single cascade path).
+        // Incoming dependency edges (depends_on_id) cannot cascade on SQL Server:
+        // migration 004 allows only ONE cascade path to factory_script_groups
+        // (error 1785). Delete them explicitly; outgoing edges (group_id) cascade
+        // with the group. PostgreSQL cascades both -- the explicit delete is kept
+        // here too so both dialects behave identically.
         const string incomingEdgesSql =
             "DELETE FROM factory_script_group_dependencies WHERE depends_on_id = @id";
         const string sql = "DELETE FROM factory_script_groups WHERE id = @id";
 
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync();
-        await using var transaction = await connection.BeginTransactionAsync();
+        await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync();
 
-        await using var incomingCommand = new NpgsqlCommand(incomingEdgesSql, connection, transaction);
+        await using var incomingCommand = new SqlCommand(incomingEdgesSql, connection, transaction);
         incomingCommand.Parameters.AddWithValue("@id", id);
         await incomingCommand.ExecuteNonQueryAsync();
 
-        await using var command = new NpgsqlCommand(sql, connection, transaction);
+        await using var command = new SqlCommand(sql, connection, transaction);
         command.Parameters.AddWithValue("@id", id);
 
         var rowsAffected = await command.ExecuteNonQueryAsync();
@@ -227,8 +229,8 @@ public class ScriptGroupRepository : IScriptGroupRepository
     }
 
     private async Task<IReadOnlyList<Guid>> LoadDependenciesAsync(
-        NpgsqlConnection connection,
-        NpgsqlTransaction? transaction,
+        SqlConnection connection,
+        SqlTransaction? transaction,
         Guid groupId)
     {
         const string sql = """
@@ -237,7 +239,7 @@ public class ScriptGroupRepository : IScriptGroupRepository
             WHERE group_id = @groupId
             """;
 
-        await using var command = new NpgsqlCommand(sql, connection, transaction);
+        await using var command = new SqlCommand(sql, connection, transaction);
         command.Parameters.AddWithValue("@groupId", groupId);
 
         await using var reader = await command.ExecuteReaderAsync();
@@ -250,22 +252,15 @@ public class ScriptGroupRepository : IScriptGroupRepository
         return deps;
     }
 
-    private async Task<IReadOnlyList<Guid>> LoadDependenciesAsync(
-        NpgsqlConnection connection,
-        Guid groupId)
-    {
-        return await LoadDependenciesAsync(connection, null, groupId);
-    }
-
     private static async Task SaveDependenciesAsync(
-        NpgsqlConnection connection,
-        NpgsqlTransaction transaction,
+        SqlConnection connection,
+        SqlTransaction transaction,
         Guid groupId,
         IReadOnlyList<Guid> dependencies)
     {
         // Clear existing dependencies
         const string deleteSql = "DELETE FROM factory_script_group_dependencies WHERE group_id = @groupId";
-        await using var deleteCommand = new NpgsqlCommand(deleteSql, connection, transaction);
+        await using var deleteCommand = new SqlCommand(deleteSql, connection, transaction);
         deleteCommand.Parameters.AddWithValue("@groupId", groupId);
         await deleteCommand.ExecuteNonQueryAsync();
 
@@ -276,7 +271,7 @@ public class ScriptGroupRepository : IScriptGroupRepository
                 INSERT INTO factory_script_group_dependencies (group_id, depends_on_id)
                 VALUES (@groupId, @dependsOnId)
                 """;
-            await using var insertCommand = new NpgsqlCommand(insertSql, connection, transaction);
+            await using var insertCommand = new SqlCommand(insertSql, connection, transaction);
             insertCommand.Parameters.AddWithValue("@groupId", groupId);
             insertCommand.Parameters.AddWithValue("@dependsOnId", depId);
             await insertCommand.ExecuteNonQueryAsync();
